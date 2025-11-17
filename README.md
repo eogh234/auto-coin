@@ -166,14 +166,99 @@ python main.py --analyze --days 7
 # modules/trading_engine.py의 generate_signal 메서드 수정
 def generate_signal(self, ticker: str) -> str:
     # 기존 로직
-    # ...
-
+    # ... 
+    
     # 새로운 전략 추가
     if your_custom_condition:
         return "CUSTOM_BUY"
 ```
 
-# 특정 코인 백테스팅
+## 📝 커밋 컨벤션
+
+이 프로젝트는 **Conventional Commits** 형식을 사용합니다.
+
+### 📋 기본 형식
+
+```
+<type>[scope]: <description> [v<version>]
+
+💡 Why:
+- <변경 원인/비즈니스 요구사항>
+
+🔧 What:
+- <구체적인 변경 내용>
+
+🧪 Testing:
+- <테스트 시나리오 및 결과>
+
+📈 Impact:
+- <성능/시스템/사용자 영향>
+
+🚀 Deployment:
+- <배포 관련 정보>
+```
+
+### 🏷️ 타입 종류
+
+- **feat**: 새로운 기능
+- **fix**: 버그 수정
+- **refactor**: 코드 리팩토링
+- **perf**: 성능 개선
+- **test**: 테스트 추가/수정
+- **docs**: 문서 변경
+- **style**: 코드 스타일 변경
+- **chore**: 빌드/도구 변경
+- **ci**: CI/CD 설정 변경
+
+### 🎯 스코프 종류
+
+- **trading**: 거래 엔진 관련
+- **learning**: AI/학습 시스템 관련
+- **config**: 설정 관리 관련
+- **notif**: 알림 시스템 관련
+- **backtest**: 백테스팅 관련
+- **deploy**: 배포 관련
+
+### 💡 커밋 예시
+
+```bash
+# 간단한 변경
+feat(trading): add volume confirmation to buy signals
+fix(learning): resolve SQLite database lock timeout
+
+# 중요한 변경 (상세 정보 포함)
+feat(trading): implement multi-timeframe analysis [v2.1.0]
+
+💡 Why:
+- Single timeframe missing trend context
+- Need better signal accuracy
+
+🔧 What:
+- Added 5m, 15m, 1h analysis
+- Enhanced signal scoring
+
+🧪 Testing:
+- 30-day backtest: +15% improvement
+- Paper trading: 70% win rate
+
+📈 Impact:
+- Better trend recognition
+- No breaking changes
+
+🚀 Deployment:
+- Config update required
+- PM2 restart recommended
+```
+
+### ⚙️ 템플릿 사용법
+
+```bash
+# 커밋 템플릿 설정 (이미 설정됨)
+git config commit.template .gitmessage
+
+# 템플릿과 함께 커밋
+git commit  # 에디터에서 템플릿 자동 로드
+```# 특정 코인 백테스팅
 
 python backtest_advanced.py --ticker KRW-ETH --plot
 
