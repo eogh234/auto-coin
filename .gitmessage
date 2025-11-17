@@ -1,0 +1,46 @@
+# Auto-Coin Trading Bot Commit Template
+#
+# Format: <type>[scope]: <description> [v<version>]
+#
+# Types:
+#   feat     - New feature
+#   fix      - Bug fix
+#   refactor - Code refactoring
+#   perf     - Performance improvement
+#   test     - Adding/updating tests
+#   docs     - Documentation changes
+#   style    - Code style changes
+#   chore    - Build/tool changes
+#   ci       - CI/CD changes
+#
+# Scopes:
+#   trading  - Trading engine
+#   learning - AI/ML system
+#   config   - Configuration
+#   notif    - Notifications
+#   backtest - Backtesting
+#   deploy   - Deployment
+#   api      - API changes
+#
+# Example:
+# feat(trading): implement adaptive RSI thresholds [v2.1.0]
+#
+# 💡 Why:
+# - Market volatility requires dynamic parameter adjustment
+# - Fixed RSI thresholds showing poor performance
+#
+# 🔧 What:
+# - Added adaptive RSI calculation in trading_engine.py
+# - Enhanced learning_system.py with optimization
+#
+# 🧪 Testing:
+# - Backtested on 30-day data: +2.3% improvement
+# - Paper trading: 8/10 successful trades
+#
+# 📈 Impact:
+# - Expected 10-15% win rate improvement
+# - Minimal performance impact
+#
+# 🚀 Deployment:
+# - Zero-downtime deployment possible
+# - PM2 restart recommended
