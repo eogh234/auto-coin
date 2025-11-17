@@ -138,6 +138,7 @@ jobs:
 
       - name: 📢 Deployment Notification
         if: always()
+        continue-on-error: true
         uses: 8398a7/action-slack@v3
         with:
           status: ${{ job.status }}
