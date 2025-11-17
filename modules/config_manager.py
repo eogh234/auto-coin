@@ -53,7 +53,7 @@ class ConfigManager:
         }
 
         with open(self.config_path, 'w', encoding='UTF-8') as f:
-            yaml.dump(default_config, f, ensure_ascii=False, indent=2)
+            yaml.dump(default_config, f, allow_unicode=True, indent=2)
 
         self.config = default_config
         logging.info(f"기본 설정 파일 생성: {self.config_path}")
