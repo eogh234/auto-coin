@@ -3,6 +3,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Legacy files (moved to legacy/ directory)
+legacy/
+
+# Trading data and logs
+*.log
+*.db
+trading_data.json
+
+# Config files with sensitive data
+config.yaml
+
 # C extensions
 *.so
 
@@ -169,3 +180,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+config.yaml

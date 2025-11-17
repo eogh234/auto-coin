@@ -1,0 +1,5 @@
+pyupbit>=0.2.33
+pyyaml>=6.0
+requests>=2.25.0
+psutil>=5.8.0
+pandas>=1.3.0
