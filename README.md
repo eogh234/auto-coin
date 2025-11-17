@@ -166,8 +166,8 @@ python main.py --analyze --days 7
 # modules/trading_engine.py의 generate_signal 메서드 수정
 def generate_signal(self, ticker: str) -> str:
     # 기존 로직
-    # ... 
-    
+    # ...
+
     # 새로운 전략 추가
     if your_custom_condition:
         return "CUSTOM_BUY"
@@ -252,7 +252,7 @@ feat(trading): implement multi-timeframe analysis [v2.1.0]
 
 ### ⚙️ 템플릿 사용법
 
-```bash
+````bash
 # 커밋 템플릿 설정 (이미 설정됨)
 git config commit.template .gitmessage
 
@@ -262,7 +262,7 @@ git commit  # 에디터에서 템플릿 자동 로드
 
 python backtest_advanced.py --ticker KRW-ETH --plot
 
-```
+````
 
 ## 🚨 주의사항
 
@@ -287,4 +287,7 @@ python backtest_advanced.py --ticker KRW-ETH --plot
 ## ⚠️ 면책 조항
 
 이 소프트웨어는 교육 목적으로 제공되며, 실제 투자 시 발생하는 모든 손실에 대해 개발자는 책임지지 않습니다. 투자는 본인의 판단과 책임하에 진행하시기 바랍니다.
+
+```
+
 ```
