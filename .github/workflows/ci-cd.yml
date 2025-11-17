@@ -136,19 +136,19 @@ jobs:
             fi
           EOF
 
-      - name: 📢 Deployment Notification
-        if: always()
-        continue-on-error: true
-        uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          text: |
-            🚀 Auto-Coin Deployment ${{ job.status }}
-            📦 Commit: ${{ github.sha }}
-            👤 Author: ${{ github.actor }}
-            🌐 Production: https://your-domain.com
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # - name: 📢 Deployment Notification
+      #   if: always()
+      #   continue-on-error: true
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: ${{ job.status }}
+      #     text: |
+      #       🚀 Auto-Coin Deployment ${{ job.status }}
+      #       📦 Commit: ${{ github.sha }}
+      #       👤 Author: ${{ github.actor }}
+      #       🌐 Production: https://your-domain.com
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # 🏷️ 릴리즈 태깅 (선택사항)
   tag-release:
