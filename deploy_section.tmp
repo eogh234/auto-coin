@@ -1,0 +1,56 @@
+      - name: 📡 Deploy to Server
+        run: |
+          echo "🌍 Deploying to production server..."
+
+          # 서버에서 git pull을 통한 배포
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
+            set -e
+            
+            echo "🛑 Stopping current application..."
+            pm2 stop auto-trader || true
+            
+            echo "📁 Checking repository..."
+            cd /home/ubuntu
+            
+            # 백업
+            [ -d auto-trader-v2-backup ] && rm -rf auto-trader-v2-backup
+            [ -d auto-trader-v2 ] && mv auto-trader-v2 auto-trader-v2-backup || true
+            
+            echo "📥 Cloning/Pulling latest code..."
+            if [ ! -d "auto-trader-v2" ]; then
+              git clone https://github.com/eogh234/auto-coin.git auto-trader-v2
+            else
+              cd auto-trader-v2
+              git fetch origin
+              git reset --hard origin/master
+              cd ..
+            fi
+            
+            cd auto-trader-v2
+            
+            echo "🔧 Setting up environment..."
+            
+            # 기존 설정 파일 복사
+            if [ -f "/home/ubuntu/auto-trader-v2-backup/config.yaml" ]; then
+              cp /home/ubuntu/auto-trader-v2-backup/config.yaml ./
+            fi
+            
+            # 기존 거래 데이터 복사
+            if [ -f "/home/ubuntu/auto-trader-v2-backup/trading_data.json" ]; then
+              cp /home/ubuntu/auto-trader-v2-backup/trading_data.json ./
+            fi
+            
+            # 기존 학습 데이터 복사
+            if [ -f "/home/ubuntu/auto-trader-v2-backup/trade_history.db" ]; then
+              cp /home/ubuntu/auto-trader-v2-backup/trade_history.db ./
+            fi
+            
+            echo "📦 Installing dependencies..."
+            pip3 install -r requirements.txt --user
+            
+            echo "🚀 Starting application..."
+            pm2 start main.py --name auto-trader --interpreter python3
+            pm2 save
+            
+            echo "✅ Deployment completed successfully!"
+          EOF
