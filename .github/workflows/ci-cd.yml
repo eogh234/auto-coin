@@ -79,46 +79,16 @@ jobs:
             set -e
             
             echo "🛑 Stopping current application..."
-            pm2 stop ${{ env.PM2_APP_NAME }} || true
+            pm2 stop auto-trader || true
             
             echo "📁 Backing up current version..."
             cd /home/ubuntu
             [ -d auto-trader-v2-backup ] && rm -rf auto-trader-v2-backup
             [ -d auto-trader-v2 ] && mv auto-trader-v2 auto-trader-v2-backup
             
-            echo "📥 Downloading latest code..."
-            wget -q -O latest-release.tar.gz https://github.com/eogh234/auto-coin/archive/refs/heads/master.tar.gz
-            tar -xzf latest-release.tar.gz
-            mv auto-coin-master auto-trader-v2
-            rm latest-release.tar.gz
-            
-            echo "🔧 Setting up environment..."
+            echo "📥 Cloning latest code..."
+            git clone https://github.com/eogh234/auto-coin.git auto-trader-v2
             cd auto-trader-v2
-            
-            # 기존 설정 파일 복사
-            if [ -f "/home/ubuntu/auto-trader-v2-backup/config.yaml" ]; then
-              cp /home/ubuntu/auto-trader-v2-backup/config.yaml ./
-            fi
-            
-            # 기존 거래 데이터 복사
-            if [ -f "/home/ubuntu/auto-trader-v2-backup/trading_data.json" ]; then
-              cp /home/ubuntu/auto-trader-v2-backup/trading_data.json ./
-            fi
-            
-            # 기존 학습 데이터 복사
-            if [ -f "/home/ubuntu/auto-trader-v2-backup/trade_history.db" ]; then
-              cp /home/ubuntu/auto-trader-v2-backup/trade_history.db ./
-            fi
-            
-            echo "📦 Installing dependencies..."
-            pip3 install -r requirements.txt --user
-            
-            echo "🚀 Starting application..."
-            pm2 start main.py --name ${{ env.PM2_APP_NAME }} --interpreter python3
-            pm2 save
-            
-            echo "✅ Deployment completed successfully!"
-          EOF
 
       - name: 🔍 Enhanced Health Check
         run: |
