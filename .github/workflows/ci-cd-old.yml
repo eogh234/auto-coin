@@ -1,4 +1,4 @@
-name: 🚀 Auto-Coin Enhanced CI/CD Pipeline
+name: 🚀 Auto-Coin CI/CD Pipeline
 
 on:
   push:
@@ -78,7 +78,15 @@ jobs:
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
             set -e
             
-            echo "🛑 Stopping current application..."
+            echo "� 배포 시작 알림..."
+            python3 -c "
+import requests, json, os
+webhook = os.getenv('DISCORD_WEBHOOK_URL', '${{ secrets.DISCORD_WEBHOOK_URL }}')
+if webhook:
+    requests.post(webhook, json={'content': '🚀 Auto-Coin 배포 시작!'})
+" || true
+            
+            echo "�🛑 Stopping current application..."
             pm2 stop ${{ env.PM2_APP_NAME }} || true
             
             echo "📁 Backing up current version..."
@@ -123,10 +131,10 @@ jobs:
       - name: 🔍 Enhanced Health Check
         run: |
           echo "🏥 Performing enhanced health check..."
-
+          
           # 헬스체크 스크립트를 서버에 복사하고 실행
           scp -o StrictHostKeyChecking=no scripts/health_check.py ubuntu@${{ secrets.SERVER_IP }}:/tmp/
-
+          
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
             cd /home/ubuntu/auto-trader-v2
             export PM2_APP_NAME=${{ env.PM2_APP_NAME }}
@@ -137,8 +145,8 @@ jobs:
         if: success()
         run: |
           # 알림 스크립트를 서버에 복사하고 실행
-          scp -o StrictHostKeyChecking=no scripts/notification_manager.py ubuntu@${{ secrets.SERVER_IP }}:/tmp/ || echo "Notification script copy failed"
-
+          scp -o StrictHostKeyChecking=no scripts/notification_manager.py ubuntu@${{ secrets.SERVER_IP }}:/tmp/
+          
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
             export DISCORD_WEBHOOK_URL="${{ secrets.DISCORD_WEBHOOK_URL }}"
             export SLACK_WEBHOOK_URL="${{ secrets.SLACK_WEBHOOK_URL }}"
@@ -146,23 +154,23 @@ jobs:
             export GITHUB_REF="${{ github.ref }}"
             export GITHUB_ACTOR="${{ github.actor }}"
             
-            python3 /tmp/notification_manager.py success "배포가 성공적으로 완료되었습니다!" || echo "Notification failed"
+            python3 /tmp/notification_manager.py success "배포가 성공적으로 완료되었습니다!"
           EOF
 
       - name: 🔄 Auto Rollback on Failure
         if: failure()
         run: |
           echo "💥 배포 실패 감지 - 자동 롤백 시작..."
-
+          
           # 롤백 스크립트를 서버에 복사하고 실행
-          scp -o StrictHostKeyChecking=no scripts/auto_rollback.py ubuntu@${{ secrets.SERVER_IP }}:/tmp/ || echo "Rollback script copy failed"
-
+          scp -o StrictHostKeyChecking=no scripts/auto_rollback.py ubuntu@${{ secrets.SERVER_IP }}:/tmp/
+          
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
             export PM2_APP_NAME=${{ env.PM2_APP_NAME }}
             export DISCORD_WEBHOOK_URL="${{ secrets.DISCORD_WEBHOOK_URL }}"
             
             cd /home/ubuntu
-            python3 /tmp/auto_rollback.py || echo "Rollback failed"
+            python3 /tmp/auto_rollback.py
           EOF
 
       - name: 📢 Failure Notification
@@ -176,8 +184,22 @@ jobs:
             export GITHUB_REF="${{ github.ref }}"
             export GITHUB_ACTOR="${{ github.actor }}"
             
-            python3 /tmp/notification_manager.py error "배포가 실패했습니다. 자동 롤백이 시도되었습니다." || echo "Failure notification failed"
+            python3 /tmp/notification_manager.py error "배포가 실패했습니다. 자동 롤백이 시도되었습니다."
           EOF
+
+      # - name: 📢 Deployment Notification
+      #   if: always()
+      #   continue-on-error: true
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: ${{ job.status }}
+      #     text: |
+      #       🚀 Auto-Coin Deployment ${{ job.status }}
+      #       📦 Commit: ${{ github.sha }}
+      #       👤 Author: ${{ github.actor }}
+      #       🌐 Production: https://your-domain.com
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
   # 🏷️ 릴리즈 태깅 (선택사항)
   tag-release:
@@ -216,10 +238,9 @@ jobs:
             🚀 **Auto-Coin Release ${{ steps.tag.outputs.tag }}**
 
             ### 🔄 Changes in this release:
-            - Enhanced CI/CD pipeline with auto-rollback
-            - Comprehensive health checks
-            - Multi-channel notifications
-            - Improved error handling and monitoring
+            - Automated deployment via GitHub Actions
+            - Enhanced error handling and logging
+            - Performance optimizations
 
             ### 📊 Deployment Info:
             - **Commit**: ${{ github.sha }}
@@ -236,65 +257,3 @@ jobs:
             *This release was automatically created by GitHub Actions*
           draft: false
           prerelease: false
-
-  # 📊 배포 상태 모니터링
-  monitoring:
-    name: 📊 Post-Deployment Monitoring
-    needs: deploy
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push' && success()
-
-    steps:
-      - name: 📥 Checkout Code
-        uses: actions/checkout@v4
-
-      - name: ⏰ Extended Health Monitoring
-        run: |
-          echo "📈 시작 5분간 연속 모니터링..."
-
-          for i in {1..5}; do
-            echo "🔍 모니터링 라운드 $i/5..."
-            
-            ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
-              echo "=== PM2 상태 ===" 
-              pm2 status ${{ env.PM2_APP_NAME }}
-              
-              echo "=== 최근 로그 (마지막 10줄) ==="
-              pm2 logs ${{ env.PM2_APP_NAME }} --lines 10 --raw
-              
-              echo "=== 시스템 리소스 ==="
-              echo "메모리 사용량:"
-              free -h | head -2
-              echo "디스크 사용량:"
-              df -h . | tail -1
-            EOF
-            
-            if [ $i -lt 5 ]; then
-              echo "⏳ 60초 대기..."
-              sleep 60
-            fi
-          done
-
-      - name: 📊 Generate Deployment Report
-        run: |
-          echo "📋 배포 리포트 생성..."
-
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.SERVER_IP }} << 'EOF'
-            cd /home/ubuntu/auto-trader-v2
-            
-            # 배포 리포트 생성
-            cat > deployment_report.json << EOL
-            {
-              "deployment_time": "$(date -Iseconds)",
-              "commit_sha": "${{ github.sha }}",
-              "author": "${{ github.actor }}",
-              "pm2_status": "$(pm2 jlist | jq -r '.[0].pm2_env.status' 2>/dev/null || echo 'unknown')",
-              "uptime": "$(pm2 jlist | jq -r '.[0].pm2_env.uptime' 2>/dev/null || echo 'unknown')",
-              "memory_usage": "$(free -m | awk 'NR==2{printf "%.1f%%", $3*100/$2}')",
-              "disk_usage": "$(df -h . | awk 'NR==2{print $5}')"
-            }
-            EOL
-            
-            echo "📄 배포 리포트:"
-            cat deployment_report.json
-          EOF
