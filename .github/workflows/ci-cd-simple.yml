@@ -8,22 +8,22 @@ jobs:
   test:
     name: 🧪 Tests & Quality Checks
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-      
+
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
-          cache: 'pip'
-      
+          python-version: "3.8"
+          cache: "pip"
+
       - name: 📦 Install Dependencies
         run: |
           pip install -r requirements.txt || echo "⚠️ Some dependencies failed, continuing..."
           pip install flake8 || echo "⚠️ flake8 install failed"
-      
+
       - name: 📊 Config Validation
         run: |
           python -c "
@@ -41,11 +41,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    
+
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
-      
+
       - name: 🔧 Setup SSH Key
         run: |
           mkdir -p ~/.ssh
@@ -60,11 +60,11 @@ jobs:
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
-      
+
       - name: 📡 Deploy to Server
         run: |
           echo "🌍 Starting deployment process..."
-          
+
           if [ -n "$DEPLOY_SSH_KEY" ] && [ -n "$SERVER_IP" ]; then
             echo "🔑 Performing actual deployment to server"
             
@@ -95,13 +95,13 @@ jobs:
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
           SERVER_IP: ${{ secrets.SERVER_IP }}
-      
+
       - name: 📢 Success Message
         run: |
           echo "✅ CI/CD Pipeline completed successfully!"
           echo "📅 $(date)"
           echo "📝 Commit: ${{ github.sha }}"
-      
+
       - name: 🧹 Cleanup
         if: always()
         run: rm -f ~/.ssh/deploy_key || true
