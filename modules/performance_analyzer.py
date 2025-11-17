@@ -23,14 +23,14 @@ class PerformanceAnalyzer:
                 print("분석할 거래 데이터가 없습니다.")
                 return
 
-            print(f"📊 기본 통계:")
+            print("📊 기본 통계:")
             print(f"  • 총 거래: {report['total_trades']}회")
             print(f"  • 성공률: {report['success_rate']:.1%}")
             print(f"  • 평균 수익률: {report['avg_profit_rate']:+.2%}")
             print(f"  • 최고 거래: {report['best_trade']:+.2%}")
             print(f"  • 최악 거래: {report['worst_trade']:+.2%}")
 
-            print(f"\n🧠 현재 적응형 매개변수:")
+            print("\n🧠 현재 적응형 매개변수:")
             params = report['current_params']
             print(f"  • RSI 매수 임계값: {params.get('rsi_buy_threshold', 30)}")
             print(f"  • RSI 매도 임계값: {params.get('rsi_sell_threshold', 70)}")
@@ -40,7 +40,7 @@ class PerformanceAnalyzer:
             print(
                 f"  • 손절 임계값: {params.get('stop_loss_threshold', -0.05):.1%}")
 
-            print(f"\n💾 시스템 상태:")
+            print("\n💾 시스템 상태:")
             print(f"  • 메모리 사용률: {report['memory_usage']:.1f}%")
 
         except Exception as e:

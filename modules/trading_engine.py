@@ -5,15 +5,11 @@
 import pyupbit
 import time
 import datetime
-import sys
 import logging
 import json
 import os
-import gc
-import psutil
 import signal
-import math
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List
 from .config_manager import ConfigManager
 from .notification_manager import NotificationManager
 from .learning_system import LearningSystem, TradeRecord
@@ -120,7 +116,9 @@ class TradingEngine:
                 'last_trade_reset': self.last_trade_reset.isoformat(),
                 'positions': {k: {
                     **v,
-                    'entry_time': v['entry_time'].isoformat() if isinstance(v['entry_time'], datetime.datetime) else v['entry_time']
+                    'entry_time': (v['entry_time'].isoformat()
+                                   if isinstance(v['entry_time'], datetime.datetime)
+                                   else v['entry_time'])
                 } for k, v in self.positions.items()},
                 'daily_profit': self.daily_profit,
                 'last_update': datetime.datetime.now().isoformat()
@@ -238,9 +236,11 @@ class TradingEngine:
                 'bollinger_buy_ratio', 0.2)
 
             # 매수 신호 판정
-            if market_state == 'BULL' and rsi < rsi_buy_threshold and bollinger_pos < bollinger_buy_ratio:
+            if (market_state == 'BULL' and rsi < rsi_buy_threshold and
+                    bollinger_pos < bollinger_buy_ratio):
                 return "PREMIUM_BUY"
-            elif rsi < (rsi_buy_threshold - 5) and bollinger_pos < (bollinger_buy_ratio + 0.1):
+            elif (rsi < (rsi_buy_threshold - 5) and
+                  bollinger_pos < (bollinger_buy_ratio + 0.1)):
                 return "SELECTIVE_BUY"
 
             # 매도 신호 판정 (포지션이 있는 경우만)
@@ -341,12 +341,14 @@ class TradingEngine:
 
                     self.notifier.send_discord(
                         f"{emoji} {action}",
-                        f"{ticker} @ {current_price:,.0f} KRW\n투자금: {invest_amount:,.0f}원\n거래: {self.trade_count_today}회",
+                        f"{ticker} @ {current_price:,.0f} KRW\n"
+                        f"투자금: {invest_amount:,.0f}원\n거래: {self.trade_count_today}회",
                         color
                     )
 
                     logging.info(
-                        f"매수 완료: {ticker} @ {current_price:,.0f} | {invest_amount:,.0f}원")
+                        f"매수 완료: {ticker} @ {current_price:,.0f} | "
+                        f"{invest_amount:,.0f}원")
 
             elif action.endswith("SELL"):
                 if ticker not in self.positions:
@@ -410,12 +412,15 @@ class TradingEngine:
 
                     self.notifier.send_discord(
                         f"{emoji} {action}",
-                        f"{ticker} @ {current_price:,.0f} KRW\n수익률: {profit_rate:.2%}\n수익: {profit_amount:+,.0f}원",
+                        f"{ticker} @ {current_price:,.0f} KRW\n"
+                        f"수익률: {profit_rate:.2%}\n"
+                        f"수익: {profit_amount:+,.0f}원",
                         color
                     )
 
                     logging.info(
-                        f"매도 완료: {ticker} @ {current_price:,.0f} | 수익률: {profit_rate:.2%}")
+                        f"매도 완료: {ticker} @ {current_price:,.0f} | "
+                        f"수익: {profit_amount:,.0f}원")
 
             if success:
                 self._save_trading_data()
@@ -446,8 +451,8 @@ class TradingEngine:
                 cycle_start = time.time()
 
                 # 상태 보고
-                memory_usage = psutil.virtual_memory().percent
-                additional_info = f"일일거래: {self.trade_count_today}회\n일일수익: {self.daily_profit:+,.0f}원"
+                additional_info = (f"일일거래: {self.trade_count_today}회\n"
+                                   f"일일수익: {self.daily_profit:+,.0f}원")
                 self.notifier.send_status_report("정상 운영", additional_info)
 
                 # 각 코인 분석 및 거래
@@ -505,7 +510,8 @@ class TradingEngine:
         mode_str = "테스트" if self.test_mode else "실거래"
         self.notifier.send_discord(
             "⏹️ 자동매매 봇 종료",
-            f"{mode_str} 모드 종료\n거래: {self.trade_count_today}회\n수익: {self.daily_profit:+,.0f}원{learning_summary}",
+            f"{mode_str} 모드 종료\n거래: {self.trade_count_today}회\n"
+            f"수익: {self.daily_profit:+,.0f}원{learning_summary}",
             0xffaa00
         )
 
