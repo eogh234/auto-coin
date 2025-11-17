@@ -298,3 +298,99 @@ jobs:
             echo "📄 배포 리포트:"
             cat deployment_report.json
           EOF
+
+  # 📢 배포 상태 알림
+  notify:
+    name: 📢 배포 완료 알림
+    runs-on: ubuntu-latest
+    needs: [test, deploy]
+    if: always()
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install Dependencies
+        run: |
+          pip install requests pyyaml
+
+      - name: 📢 Send Deployment Notification
+        run: |
+          python3 << 'EOF'
+          import requests
+          import json
+          import os
+          from datetime import datetime
+
+          # Discord webhook URL (환경 변수에서 읽기 시도)
+          webhook_url = os.getenv('DISCORD_WEBHOOK_URL')
+
+          # config.yaml에서 webhook URL 읽기 시도
+          if not webhook_url:
+              try:
+                  import yaml
+                  with open('config.yaml', 'r', encoding='utf-8') as f:
+                      config = yaml.safe_load(f)
+                      webhook_url = config.get('discord', {}).get('webhook_url')
+              except Exception as e:
+                  print(f"config.yaml 읽기 실패: {e}")
+
+          if not webhook_url:
+              print("Discord webhook URL not configured")
+              exit(0)
+
+          # 작업 결과 확인
+          test_result = "${{ needs.test.result }}"
+          deploy_result = "${{ needs.deploy.result }}"
+
+          # 전체 결과 판단
+          if all(result == "success" for result in [test_result, deploy_result]):
+              title = "🎉 Auto-Coin 배포 성공"
+              description = "모든 단계가 성공적으로 완료되었습니다!"
+              color = 0x00ff00
+              emoji = "✅"
+          elif any(result == "failure" for result in [test_result, deploy_result]):
+              title = "❌ Auto-Coin 배포 실패"
+              description = "일부 단계에서 오류가 발생했습니다."
+              color = 0xff0000
+              emoji = "❌"
+          else:
+              title = "⚠️ Auto-Coin 배포 완료 (경고)"
+              description = "배포는 완료되었으나 일부 단계에서 문제가 있었습니다."
+              color = 0xffaa00
+              emoji = "⚠️"
+
+          # Discord 임베드 생성
+          embed = {
+              "title": title,
+              "description": description,
+              "color": color,
+              "timestamp": datetime.utcnow().isoformat(),
+              "fields": [
+                  {"name": "🧪 테스트", "value": f"{'✅' if test_result == 'success' else '❌'} {test_result}", "inline": True},
+                  {"name": "🚀 배포", "value": f"{'✅' if deploy_result == 'success' else '❌'} {deploy_result}", "inline": True},
+                  {"name": "🔗 워크플로", "value": f"[GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})", "inline": False},
+                  {"name": "📅 시간", "value": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "inline": True},
+                  {"name": "👤 실행자", "value": "${{ github.actor }}", "inline": True},
+                  {"name": "📝 커밋", "value": "${{ github.sha }}"[:8], "inline": True}
+              ],
+              "footer": {
+                  "text": "Auto-Coin Enhanced CI/CD System"
+              }
+          }
+
+          # 알림 전송
+          payload = {"embeds": [embed]}
+
+          try:
+              response = requests.post(webhook_url, json=payload, timeout=10)
+              response.raise_for_status()
+              print(f"{emoji} Discord 알림 전송 성공")
+          except Exception as e:
+              print(f"❌ Discord 알림 전송 실패: {e}")
+          EOF

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# 🚀 간편 배포 명령어
+# 사용법: ./deploy [커밋메시지]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ -n "$1" ]]; then
+    # 커밋 메시지가 제공된 경우
+    git add .
+    git commit -m "$1"
+    echo "커밋 완료: $1"
+fi
+
+# 자동 배포 스크립트 실행
+"$SCRIPT_DIR/deploy-auto.sh"
