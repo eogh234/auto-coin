@@ -1,0 +1,19 @@
+name: 🚀 Auto-Coin CI/CD Pipeline
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == "refs/heads/master"
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Deploy to Server
+        run: |
+          echo "Deployment would happen here"
+          echo "SSH to server and git pull"
