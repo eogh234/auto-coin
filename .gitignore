@@ -182,3 +182,7 @@ cython_debug/
 .pypirc
 
 config.yaml
+auto-coin-deploy.tar.gz
+.venv/
+__pycache__/
+*.pyc

@@ -1,5 +1,21 @@
-pyupbit>=0.2.33
-pyyaml>=6.0
-requests>=2.25.0
-psutil>=5.8.0
-pandas>=1.3.0
+# 📋 Requirements for Auto-Coin Trading Bot
+
+# 🎯 Core Dependencies
+pyupbit>=0.2.33          # 업비트 API 클라이언트
+pyyaml>=6.0              # YAML 설정 파일 파싱
+requests>=2.25.0         # HTTP 요청 (Discord 웹훅)
+psutil>=5.8.0            # 시스템 모니터링
+pandas>=1.3.0            # 데이터 분석 및 처리
+numpy>=1.21.0            # 수치 계산
+
+# 🤖 AI/ML Dependencies
+scikit-learn>=1.0.0      # 머신러닝 알고리즘
+
+# 📊 Data Analysis
+matplotlib>=3.5.0        # 차트 생성
+
+# 🛠️ Development Tools (CI/CD용)
+pytest>=6.0.0           # 단위 테스트
+flake8>=4.0.0            # 코드 스타일 검사
+black>=22.0.0            # 코드 포맷팅
+safety>=2.0.0            # 보안 취약점 검사

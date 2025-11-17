@@ -373,8 +373,18 @@ class TradingEngine:
                         success = result is not None
 
                 if success:
-                    # 수익 계산
-                    profit_rate = (current_price - entry_price) / entry_price
+                    # 수수료를 고려한 수익 계산
+                    commission_rate = self.config.get(
+                        'trading.commission_rate', 0.0005)
+
+                    # 실제 매수가 (수수료 포함)
+                    actual_buy_price = entry_price * (1 + commission_rate)
+                    # 실제 매도가 (수수료 포함)
+                    actual_sell_price = current_price * (1 - commission_rate)
+
+                    # 수수료를 고려한 수익률 계산
+                    profit_rate = (actual_sell_price -
+                                   actual_buy_price) / actual_buy_price
                     profit_amount = invest_amount * profit_rate
                     hold_duration = int(
                         (datetime.datetime.now() - entry_time).total_seconds() / 60)
