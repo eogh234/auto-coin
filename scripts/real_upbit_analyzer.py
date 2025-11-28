@@ -36,6 +36,10 @@ class UpbitDataSyncManager:
         self.db_path = db_path
         self.config = ConfigManager()
 
+        # API 호출 제한 관리
+        self.api_call_delay = 0.1  # 기본 100ms 간격
+        self.last_api_call = 0
+
         # 업비트 API 초기화
         self._init_upbit_api()
 
@@ -43,6 +47,17 @@ class UpbitDataSyncManager:
         self._init_database()
 
         print("✅ 업비트 데이터 동기화 매니저 초기화 완료")
+
+    def _api_rate_limit(self, delay=None):
+        """API 호출 제한 관리"""
+        if delay is None:
+            delay = self.api_call_delay
+        
+        elapsed = time.time() - self.last_api_call
+        if elapsed < delay:
+            time.sleep(delay - elapsed)
+        
+        self.last_api_call = time.time()
 
     def _init_upbit_api(self):
         """업비트 API 초기화"""
@@ -191,16 +206,15 @@ class UpbitDataSyncManager:
         cursor = conn.cursor()
 
         try:
-            # KRW 마켓만 조회 (실제 거래 대상)
-            markets = pyupbit.get_tickers(fiat="KRW")
-
             total_synced = 0
 
             # 전체 주문 내역 조회 (상태별로)
             for state in ['done', 'cancel']:
                 try:
-                    # 완료된/취소된 주문 조회
-                    orders = self.upbit.get_order(state=state, limit=100)
+                    print(f"  📋 {state} 주문 내역 조회 중...")
+                    # 'all' ticker로 모든 주문 조회
+                    self._api_rate_limit(0.2)  # 200ms 간격
+                    orders = self.upbit.get_order('all', state=state, limit=100)
                     
                     if not orders:
                         continue
@@ -277,65 +291,92 @@ class UpbitDataSyncManager:
         try:
             total_synced = 0
 
-            # 입금 내역
-            deposits = self.upbit.get_deposit_list()
-            if deposits:
-                for deposit in deposits:
-                    cursor.execute(
-                        "SELECT txid FROM upbit_deposits_withdraws WHERE txid = ?", (deposit['txid'],))
-                    if cursor.fetchone():
-                        continue
+            # 현재 보유 중인 모든 통화 조회
+            try:
+                self._api_rate_limit()
+                balances = self.upbit.get_balances()
+                currencies = set(['KRW'])  # 기본적으로 KRW는 포함
+                
+                # 현재 잔고가 있는 모든 통화 추가
+                for balance in balances:
+                    if float(balance['balance']) > 0 or float(balance['locked']) > 0:
+                        currencies.add(balance['currency'])
+                
+                print(f"📋 입출금 조회 대상 통화: {sorted(currencies)}")
+                
+            except Exception as e:
+                print(f"⚠️ 잔고 조회 실패, 기본 통화만 사용: {e}")
+                currencies = ['KRW', 'BTC', 'ETH']  # 폴백
+            
+            for currency in currencies:
+                try:
+                    print(f"  💰 {currency} 입출금 내역 조회 중...")
+                    
+                    # 입금 내역
+                    self._api_rate_limit()
+                    deposits = self.upbit.get_deposit_list(currency)
+                    
+                    if deposits:
+                        for deposit in deposits:
+                            cursor.execute(
+                                "SELECT txid FROM upbit_deposits_withdraws WHERE txid = ?", (deposit['txid'],))
+                            if cursor.fetchone():
+                                continue
 
-                    cursor.execute("""
-                        INSERT INTO upbit_deposits_withdraws (
-                            txid, type, currency, net_type, amount, fee, state,
-                            created_at, done_at, transaction_type, raw_data
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        deposit['txid'],
-                        'deposit',
-                        deposit['currency'],
-                        deposit.get('net_type'),
-                        float(deposit['amount']),
-                        float(deposit.get('fee', 0)),
-                        deposit['state'],
-                        deposit['created_at'],
-                        deposit.get('done_at'),
-                        deposit.get('transaction_type'),
-                        json.dumps(deposit, ensure_ascii=False)
-                    ))
-                    total_synced += 1
+                            cursor.execute("""
+                                INSERT INTO upbit_deposits_withdraws (
+                                    txid, type, currency, net_type, amount, fee, state,
+                                    created_at, done_at, transaction_type, raw_data
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                deposit['txid'],
+                                'deposit',
+                                deposit['currency'],
+                                deposit.get('net_type'),
+                                float(deposit['amount']),
+                                float(deposit.get('fee', 0)),
+                                deposit['state'],
+                                deposit['created_at'],
+                                deposit.get('done_at'),
+                                deposit.get('transaction_type'),
+                                json.dumps(deposit, ensure_ascii=False)
+                            ))
+                            total_synced += 1
 
-            # 출금 내역
-            withdraws = self.upbit.get_withdraw_list()
-            if withdraws:
-                for withdraw in withdraws:
-                    cursor.execute(
-                        "SELECT txid FROM upbit_deposits_withdraws WHERE txid = ?", (withdraw['txid'],))
-                    if cursor.fetchone():
-                        continue
+                    # 출금 내역
+                    self._api_rate_limit()
+                    withdraws = self.upbit.get_withdraw_list(currency)
+                    
+                    if withdraws:
+                        for withdraw in withdraws:
+                            cursor.execute(
+                                "SELECT txid FROM upbit_deposits_withdraws WHERE txid = ?", (withdraw['txid'],))
+                            if cursor.fetchone():
+                                continue
 
-                    cursor.execute("""
-                        INSERT INTO upbit_deposits_withdraws (
-                            txid, type, currency, net_type, amount, fee, state,
-                            created_at, done_at, transaction_type, raw_data
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        withdraw['txid'],
-                        'withdraw',
-                        withdraw['currency'],
-                        withdraw.get('net_type'),
-                        float(withdraw['amount']),
-                        float(withdraw.get('fee', 0)),
-                        withdraw['state'],
-                        withdraw['created_at'],
-                        withdraw.get('done_at'),
-                        withdraw.get('transaction_type'),
-                        json.dumps(withdraw, ensure_ascii=False)
-                    ))
-                    total_synced += 1
+                            cursor.execute("""
+                                INSERT INTO upbit_deposits_withdraws (
+                                    txid, type, currency, net_type, amount, fee, state,
+                                    created_at, done_at, transaction_type, raw_data
+                                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            """, (
+                                withdraw['txid'],
+                                'withdraw',
+                                withdraw['currency'],
+                                withdraw.get('net_type'),
+                                float(withdraw['amount']),
+                                float(withdraw.get('fee', 0)),
+                                withdraw['state'],
+                                withdraw['created_at'],
+                                withdraw.get('done_at'),
+                                withdraw.get('transaction_type'),
+                                json.dumps(withdraw, ensure_ascii=False)
+                            ))
+                            total_synced += 1
 
-            # 동기화 상태 업데이트
+                except Exception as e:
+                    print(f"⚠️ {currency} 입출금 내역 동기화 오류: {e}")
+                    continue            # 동기화 상태 업데이트
             cursor.execute("""
                 INSERT OR REPLACE INTO sync_status 
                 (sync_type, last_sync_time, last_sync_success, total_synced_records)
@@ -364,6 +405,7 @@ class UpbitDataSyncManager:
         cursor = conn.cursor()
 
         try:
+            self._api_rate_limit()
             balances = self.upbit.get_balances()
             snapshot_time = datetime.now().isoformat()
 
@@ -380,6 +422,7 @@ class UpbitDataSyncManager:
 
                     if currency != 'KRW':
                         try:
+                            self._api_rate_limit(0.05)  # 가격 조회는 짧은 간격
                             current_price = pyupbit.get_current_price(
                                 f"KRW-{currency}")
                             if current_price:
