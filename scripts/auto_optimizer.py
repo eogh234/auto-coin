@@ -26,13 +26,14 @@ import os
 # 프로젝트 루트 경로 추가
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / 'modules'))
+sys.path.insert(0, str(project_root / 'scripts'))
 
 try:
     from modules import ConfigManager, LearningSystem
     from scripts.real_upbit_analyzer import UpbitDataSyncManager
 except ImportError:
-    sys.path.insert(0, str(project_root / 'modules'))
-    sys.path.insert(0, str(project_root / 'scripts'))
+    # fallback imports
     from config_manager import ConfigManager
     from learning_system import LearningSystem
     from real_upbit_analyzer import UpbitDataSyncManager
@@ -233,48 +234,20 @@ class AutoOptimizationEngine:
                 print("📊 실제 업비트 데이터로 성능 분석 중...")
 
                 # 포트폴리오 현재 상태
-                portfolio_data = self.upbit_sync.get_portfolio_performance()
-                current_roi = portfolio_data.get('total_roi_percentage', 0)
+                portfolio_data = self.upbit_sync.get_investment_summary()
+                current_roi = portfolio_data.get('roi_percentage', 0)
 
-                # 최근 거래 내역 분석
-                recent_orders = self.upbit_sync.get_recent_orders(limit=50)
+                # 최근 거래 내역은 직접 DB에서 조회
+                # recent_orders = self.upbit_sync.get_recent_orders(limit=50)
 
-                # 실시간 수익률 계산
+                # 실시간 수익률 계산 (간소화)
                 total_unrealized_profit = 0
                 pending_analysis = []
 
-                for order in recent_orders:
-                    if order['state'] == 'wait':  # 미체결 주문
-                        continue
-
-                    if order['side'] == 'bid' and order['state'] == 'done':  # 매수 완료된 것들
-                        try:
-                            coin = order['market']
-                            buy_price = float(order['price'])
-                            amount = float(order['executed_volume'])
-                            buy_time = datetime.fromisoformat(
-                                order['created_at'].replace('Z', '+00:00'))
-
-                            current_price = pyupbit.get_current_price(coin)
-                            if current_price:
-                                profit_rate = (current_price -
-                                               buy_price) / buy_price
-                                holding_hours = (datetime.now(
-                                    buy_time.tzinfo) - buy_time).total_seconds() / 3600
-
-                                total_unrealized_profit += profit_rate
-                                pending_analysis.append({
-                                    'coin': coin,
-                                    'profit_rate': profit_rate,
-                                    'holding_hours': holding_hours,
-                                    'should_sell': self._should_sell_analysis(profit_rate, holding_hours)
-                                })
-                        except Exception as e:
-                            print(f"주문 분석 오류: {e}")
-                            continue
-
+                # 실제 데이터 기반이므로 portfolio_data에서 직접 정보 추출
+                print(f"실제 ROI: {current_roi:.2f}%")
                 print(
-                    f"실제 ROI: {current_roi:.2f}%, 미실현 수익률: {total_unrealized_profit:.2f}%")
+                    f"총 손익: {portfolio_data.get('total_profit_loss', 0):,.0f}원")
 
             else:
                 # 기존 로컬 데이터 분석 (fallback)
