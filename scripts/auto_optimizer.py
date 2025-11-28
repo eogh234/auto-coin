@@ -35,6 +35,15 @@ except ImportError:
     from learning_system import LearningSystem
 
 
+class DateTimeEncoder(json.JSONEncoder):
+    """DateTime 객체를 JSON으로 serialize하기 위한 encoder"""
+
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+
 class AutoOptimizationEngine:
     """자동 최적화 엔진"""
 
@@ -173,7 +182,7 @@ class AutoOptimizationEngine:
                 'signal_efficiency': signal_efficiency,
                 'memory_usage_mb': memory_usage,
                 'cpu_percent': cpu_percent,
-                'analysis_time': datetime.now()
+                'analysis_time': datetime.now().isoformat()
             }
 
         except Exception as e:
@@ -375,7 +384,7 @@ class AutoOptimizationEngine:
         # 파일로 저장
         with open('optimization_history.json', 'w', encoding='utf-8') as f:
             json.dump(self.optimization_history, f,
-                      ensure_ascii=False, indent=2)
+                      ensure_ascii=False, indent=2, cls=DateTimeEncoder)
 
     def generate_optimization_report(self):
         """최적화 리포트 생성"""
