@@ -31,36 +31,6 @@
 - **deploy-auto.sh** - 자동 배포 스크립트
 - **requirements.txt** - 의존성 패키지 목록
 
-## 정리된 파일들 (archive/)
-
-### 미사용 스크립트 (archive/unused_scripts/)
-
-- performance_monitor.py
-- realtime_dashboard.py
-- cicd_notification_manager.py
-- config_optimizer.py
-- optimization_action_plan.py
-
-### 분석 도구 (archive/analysis_tools/)
-
-- optimization_report.py
-- current_status_report.py
-- investment_analysis.py
-- test_data_integration.py
-- analyze_structure.py
-
-### 개발 도구 (archive/development_tools/)
-
-- github_monitor.py
-- health_check.py
-- error_recovery.py
-- auto_rollback.py
-
-### 미사용 모듈 (archive/unused_modules/)
-
-- backtest_engine.py
-- performance_analyzer.py
-
 ## 데이터 흐름
 
 ```
@@ -88,3 +58,4 @@ main.py (최적화된 매개변수로 트레이딩)
 3. **데이터 일관성**: 실제 업비트 데이터를 단일 소스로 활용
 4. **유지보수성 향상**: 핵심 기능에 집중된 구조
 5. **의존성 단순화**: 복잡한 교차 의존성 제거
+6. **Git 버전 관리**: 필요시 이전 코드는 Git 히스토리에서 복구 가능
