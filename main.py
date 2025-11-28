@@ -31,6 +31,14 @@ from modules import (
     PerformanceAnalyzer
 )
 
+# 데이터 동기화 시스템 임포트
+try:
+    from scripts.data_sync_integration import integrate_with_trading_bot
+    DATA_SYNC_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ 데이터 동기화 시스템을 사용할 수 없습니다: {e}")
+    DATA_SYNC_AVAILABLE = False
+
 
 def setup_logging():
     """로깅 설정"""
@@ -77,7 +85,31 @@ def main():
         else:
             # 거래 모드 (실거래 또는 테스트)
             trading = TradingEngine(config, notifier, learning, args.test)
-            trading.run_trading_loop()
+            
+            # 데이터 동기화 시스템 통합
+            sync_integration = None
+            if DATA_SYNC_AVAILABLE and not args.test:  # 실거래 모드에서만
+                try:
+                    logging.info("🔄 업비트 데이터 동기화 시스템 통합 중...")
+                    sync_integration = integrate_with_trading_bot(trading)
+                    logging.info("✅ 데이터 동기화 시스템 통합 완료")
+                    
+                    # 동기화 상태 리포트
+                    status_report = sync_integration.generate_sync_status_report()
+                    logging.info(f"데이터 동기화 상태:\n{status_report}")
+                    
+                except Exception as e:
+                    logging.warning(f"⚠️ 데이터 동기화 시스템 통합 실패: {e}")
+                    logging.warning("기본 모드로 계속 실행합니다.")
+            
+            try:
+                # 거래 시스템 실행
+                trading.run_trading_loop()
+            finally:
+                # 종료 시 동기화 시스템 정리
+                if sync_integration:
+                    sync_integration.stop_background_sync()
+                    logging.info("🔄 데이터 동기화 시스템 정상 종료")
 
     except KeyboardInterrupt:
         logging.info("사용자에 의한 종료")
