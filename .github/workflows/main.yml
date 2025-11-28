@@ -124,7 +124,7 @@ jobs:
             set -e
             echo "🔄 Starting deployment..."
             
-            cd /home/ubuntu/auto-coin 2>/dev/null || cd /home/ubuntu/auto-bitcoin-trading
+            cd /home/ubuntu/auto-trader-v2 2>/dev/null || cd /home/ubuntu/auto-coin || cd /home/ubuntu/auto-bitcoin-trading
             
             # Create backup
             BACKUP_DIR="/home/ubuntu/backups/auto-coin-$(date +%Y%m%d-%H%M%S)"
@@ -183,7 +183,7 @@ jobs:
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
             echo "🚨 EMERGENCY ROLLBACK INITIATED"
             
-            cd /home/ubuntu/auto-coin 2>/dev/null || cd /home/ubuntu/auto-bitcoin-trading
+            cd /home/ubuntu/auto-trader-v2 2>/dev/null || cd /home/ubuntu/auto-coin || cd /home/ubuntu/auto-bitcoin-trading
             
             # Find latest backup
             LATEST_BACKUP=$(ls -t /home/ubuntu/backups/auto-coin-* 2>/dev/null | head -1 || echo "")
