@@ -29,10 +29,13 @@ sys.path.insert(0, str(project_root))
 
 try:
     from modules import ConfigManager, LearningSystem
+    from scripts.real_upbit_analyzer import UpbitDataSyncManager
 except ImportError:
     sys.path.insert(0, str(project_root / 'modules'))
+    sys.path.insert(0, str(project_root / 'scripts'))
     from config_manager import ConfigManager
     from learning_system import LearningSystem
+    from real_upbit_analyzer import UpbitDataSyncManager
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -50,6 +53,15 @@ class AutoOptimizationEngine:
     def __init__(self):
         self.config = ConfigManager()
         self.learning = LearningSystem(self.config)
+
+        # 업비트 동기화 매니저 추가 (정확한 데이터용)
+        try:
+            self.upbit_sync = UpbitDataSyncManager()
+            self.use_real_data = True
+            print("✅ 실제 업비트 데이터 연결 성공")
+        except Exception as e:
+            print(f"⚠️ 업비트 데이터 연결 실패, 로컬 데이터 사용: {e}")
+            self.use_real_data = False
         self.running = False
 
         # 다층 최적화 간격 설정
@@ -214,54 +226,105 @@ class AutoOptimizationEngine:
             self.logger.error(f"성능 메트릭 기록 오류: {e}")
 
     def _analyze_current_performance(self):
-        """현재 성능 분석"""
+        """현재 성능 분석 (실제 업비트 데이터 기반)"""
         try:
-            # 거래 데이터 분석
-            conn = sqlite3.connect(self.learning.db_path)
-            cursor = conn.cursor()
+            if self.use_real_data:
+                # 실제 업비트 데이터 분석
+                print("📊 실제 업비트 데이터로 성능 분석 중...")
 
-            # 최근 24시간 데이터
-            since_time = datetime.now() - timedelta(hours=24)
-            cursor.execute("""
-                SELECT * FROM trades 
-                WHERE timestamp > ? 
-                ORDER BY timestamp DESC
-            """, (since_time.isoformat(),))
+                # 포트폴리오 현재 상태
+                portfolio_data = self.upbit_sync.get_portfolio_performance()
+                current_roi = portfolio_data.get('total_roi_percentage', 0)
 
-            recent_trades = cursor.fetchall()
+                # 최근 거래 내역 분석
+                recent_orders = self.upbit_sync.get_recent_orders(limit=50)
 
-            # 미완료 거래 분석
-            cursor.execute("SELECT * FROM trades WHERE success IS NULL")
-            pending_trades = cursor.fetchall()
+                # 실시간 수익률 계산
+                total_unrealized_profit = 0
+                pending_analysis = []
 
-            conn.close()
+                for order in recent_orders:
+                    if order['state'] == 'wait':  # 미체결 주문
+                        continue
 
-            # 실시간 수익률 계산
-            total_unrealized_profit = 0
-            pending_analysis = []
+                    if order['side'] == 'bid' and order['state'] == 'done':  # 매수 완료된 것들
+                        try:
+                            coin = order['market']
+                            buy_price = float(order['price'])
+                            amount = float(order['executed_volume'])
+                            buy_time = datetime.fromisoformat(
+                                order['created_at'].replace('Z', '+00:00'))
 
-            for trade in pending_trades:
-                try:
-                    coin = trade[2]
-                    buy_price = trade[5]
-                    amount = trade[6]
-                    buy_time = datetime.fromisoformat(trade[1])
+                            current_price = pyupbit.get_current_price(coin)
+                            if current_price:
+                                profit_rate = (current_price -
+                                               buy_price) / buy_price
+                                holding_hours = (datetime.now(
+                                    buy_time.tzinfo) - buy_time).total_seconds() / 3600
 
-                    current_price = pyupbit.get_current_price(coin)
-                    if current_price:
-                        profit_rate = (current_price - buy_price) / buy_price
-                        holding_hours = (datetime.now() -
-                                         buy_time).total_seconds() / 3600
+                                total_unrealized_profit += profit_rate
+                                pending_analysis.append({
+                                    'coin': coin,
+                                    'profit_rate': profit_rate,
+                                    'holding_hours': holding_hours,
+                                    'should_sell': self._should_sell_analysis(profit_rate, holding_hours)
+                                })
+                        except Exception as e:
+                            print(f"주문 분석 오류: {e}")
+                            continue
 
-                        total_unrealized_profit += profit_rate
-                        pending_analysis.append({
-                            'coin': coin,
-                            'profit_rate': profit_rate,
-                            'holding_hours': holding_hours,
-                            'should_sell': self._should_sell_analysis(profit_rate, holding_hours)
-                        })
-                except:
-                    continue
+                print(
+                    f"실제 ROI: {current_roi:.2f}%, 미실현 수익률: {total_unrealized_profit:.2f}%")
+
+            else:
+                # 기존 로컬 데이터 분석 (fallback)
+                print("📊 로컬 데이터로 성능 분석 중...")
+                conn = sqlite3.connect(self.learning.db_path)
+                cursor = conn.cursor()
+
+                # 최근 24시간 데이터
+                since_time = datetime.now() - timedelta(hours=24)
+                cursor.execute("""
+                    SELECT * FROM trades 
+                    WHERE timestamp > ? 
+                    ORDER BY timestamp DESC
+                """, (since_time.isoformat(),))
+
+                recent_trades = cursor.fetchall()
+
+                # 미완료 거래 분석
+                cursor.execute("SELECT * FROM trades WHERE success IS NULL")
+                pending_trades = cursor.fetchall()
+
+                conn.close()
+
+                # 실시간 수익률 계산
+                total_unrealized_profit = 0
+                pending_analysis = []
+
+                for trade in pending_trades:
+                    try:
+                        coin = trade[2]
+                        buy_price = trade[5]
+                        amount = trade[6]
+                        buy_time = datetime.fromisoformat(trade[1])
+
+                        current_price = pyupbit.get_current_price(coin)
+                        if current_price:
+                            profit_rate = (current_price -
+                                           buy_price) / buy_price
+                            holding_hours = (datetime.now() -
+                                             buy_time).total_seconds() / 3600
+
+                            total_unrealized_profit += profit_rate
+                            pending_analysis.append({
+                                'coin': coin,
+                                'profit_rate': profit_rate,
+                                'holding_hours': holding_hours,
+                                'should_sell': self._should_sell_analysis(profit_rate, holding_hours)
+                            })
+                    except:
+                        continue
 
             # 로그 분석 (신호 효율성)
             signal_efficiency = self._analyze_signal_efficiency()

@@ -1,0 +1,25 @@
+{
+  "data_sources": {
+    "primary": {
+      "name": "upbit_sync",
+      "path": "upbit_sync.db",
+      "description": "실제 업비트 API 동기화 데이터",
+      "purpose": "메인 데이터소스, 실시간 거래 데이터",
+      "backup_interval": "1hour"
+    },
+    "backup": {
+      "name": "trade_history",
+      "path": "trade_history.db",
+      "description": "로컬 거래 기록 백업",
+      "purpose": "백업 및 오프라인 분석용",
+      "backup_interval": "24hours"
+    }
+  },
+  "integration_rules": {
+    "primary_source": "upbit_sync",
+    "fallback_source": "trade_history",
+    "sync_strategy": "real_time",
+    "consistency_check": "daily"
+  },
+  "last_updated": "2025-11-29T00:47:12.622734"
+}
