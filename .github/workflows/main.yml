@@ -1,0 +1,245 @@
+name: 🚀 Auto-Coin CI/CD with Rollback
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  test:
+    name: 🧪 Test & Validate
+    runs-on: ubuntu-latest
+    outputs:
+      test-status: ${{ steps.test-results.outputs.status }}
+      coverage: ${{ steps.test-results.outputs.coverage }}
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 📦 Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov flake8 bandit
+
+          # Install requirements with error handling
+          if ! pip install -r requirements.txt; then
+            echo "⚠️ Some dependencies failed, installing core only"
+            pip install pyyaml requests pyupbit psutil pandas numpy || true
+          fi
+
+      - name: 🔒 Security Check
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          if [ -f bandit-report.json ]; then
+            HIGH_ISSUES=$(python -c "
+            import json
+            try:
+                with open('bandit-report.json') as f:
+                    report = json.load(f)
+                    high = [i for i in report.get('results', []) if i.get('issue_severity') == 'HIGH']
+                    print(len(high))
+            except: print(0)
+            ")
+            echo "🔍 Security scan: $HIGH_ISSUES high-severity issues found"
+          fi
+        continue-on-error: true
+
+      - name: 📊 Config Validation
+        run: |
+          python -c "
+          import yaml
+          with open('config.yaml', 'r', encoding='utf-8') as f:
+              config = yaml.safe_load(f)
+              assert 'upbit' in config and 'trading' in config
+              print('✅ Configuration validated')
+          "
+
+      - name: 🧪 Run Tests with Coverage
+        id: test-results
+        run: |
+          if python -m pytest tests/ -v --tb=short --cov=modules --cov=scripts --cov-report=term-missing; then
+            echo "✅ All tests passed!"
+            echo "status=pass" >> $GITHUB_OUTPUT
+            COVERAGE=$(python -m pytest tests/ --cov=modules --cov=scripts --cov-report=term 2>/dev/null | grep TOTAL | awk '{print $4}' || echo "0%")
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Tests failed!"
+            echo "status=fail" >> $GITHUB_OUTPUT
+            echo "coverage=0%" >> $GITHUB_OUTPUT
+            
+            # Generate failure report
+            python -m pytest tests/ --tb=long --maxfail=3 > test-failures.txt 2>&1 || true
+            echo "📄 Failure details saved to artifact"
+            exit 1
+          fi
+
+      - name: 📂 Import Check
+        run: |
+          python -c "
+          import modules
+          from modules.config_manager import ConfigManager
+          from modules.trading_engine import TradingEngine
+          print('✅ Core imports successful')
+          "
+
+      - name: 📄 Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test-failures.txt
+            bandit-report.json
+          retention-days: 7
+
+  deploy:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push' && needs.test.outputs.test-status == 'pass'
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: 🚀 Deploy with Backup
+        id: deploy
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+            set -e
+            echo "🔄 Starting deployment..."
+            
+            cd /home/ubuntu/auto-coin 2>/dev/null || cd /home/ubuntu/auto-bitcoin-trading
+            
+            # Create backup
+            BACKUP_DIR="/home/ubuntu/backups/auto-coin-$(date +%Y%m%d-%H%M%S)"
+            mkdir -p $BACKUP_DIR
+            cp -r . $BACKUP_DIR/ || echo "⚠️ Backup warning"
+            echo "💾 Backup: $BACKUP_DIR"
+            
+            # Stop services
+            pm2 stop auto-trader auto-optimizer || echo "Services not running"
+            
+            # Update code
+            git fetch origin && git reset --hard origin/master
+            
+            # Install deps
+            pip install -r requirements.txt || echo "⚠️ Dependency warning"
+            
+            # Validate
+            python -c "import yaml; yaml.safe_load(open('config.yaml')); import modules; print('✅ Validation OK')"
+            
+            # Restart
+            pm2 restart auto-trader auto-optimizer || pm2 start ecosystem.config.js
+            
+            # Verify
+            sleep 3
+            if pm2 status | grep -q online; then
+              echo "✅ Deployment successful!"
+            else
+              echo "❌ Service start failed"
+              exit 1
+            fi
+          EOF
+
+      - name: 🎉 Success Notification
+        if: success()
+        run: |
+          echo "🎉 ✅ DEPLOYMENT SUCCESSFUL!"
+          echo "📊 Coverage: ${{ needs.test.outputs.coverage }}"
+          echo "🚀 Services running on production"
+
+  rollback:
+    name: 🔄 Emergency Rollback
+    runs-on: ubuntu-latest
+    needs: [test, deploy]
+    if: always() && (needs.deploy.result == 'failure' && needs.test.outputs.test-status == 'pass')
+
+    steps:
+      - name: 🔧 Setup SSH for Rollback
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+      - name: ⚠️ Perform Rollback
+        run: |
+          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+            echo "🚨 EMERGENCY ROLLBACK INITIATED"
+            
+            cd /home/ubuntu/auto-coin 2>/dev/null || cd /home/ubuntu/auto-bitcoin-trading
+            
+            # Find latest backup
+            LATEST_BACKUP=$(ls -t /home/ubuntu/backups/auto-coin-* 2>/dev/null | head -1 || echo "")
+            
+            if [ -n "$LATEST_BACKUP" ] && [ -d "$LATEST_BACKUP" ]; then
+              echo "📦 Restoring from: $(basename $LATEST_BACKUP)"
+              
+              pm2 stop auto-trader auto-optimizer || true
+              cp -r $LATEST_BACKUP/* . || true
+              pm2 restart auto-trader auto-optimizer || pm2 start ecosystem.config.js
+              
+              sleep 2
+              pm2 status
+              echo "✅ Rollback completed"
+            else
+              echo "❌ No backup found!"
+            fi
+          EOF
+
+      - name: 🚨 Rollback Alert
+        run: |
+          echo "🚨 ❌ DEPLOYMENT FAILED - ROLLBACK EXECUTED"
+          echo "📋 Previous version restored"
+          echo "🛠️ Check logs and fix issues"
+
+  summary:
+    name: 📋 Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [test, deploy, rollback]
+    if: always()
+
+    steps:
+      - name: 📊 Final Report
+        run: |
+          echo "=== 🚀 AUTO-COIN CI/CD SUMMARY ==="
+          echo ""
+          echo "🧪 Tests: ${{ needs.test.result }}"
+          echo "📊 Coverage: ${{ needs.test.outputs.coverage || 'N/A' }}"
+          echo "🚀 Deploy: ${{ needs.deploy.result || 'Skipped' }}"
+          echo "🔄 Rollback: ${{ needs.rollback.result || 'Not needed' }}"
+          echo "📝 Commit: ${{ github.sha }}"
+          echo "👤 Author: ${{ github.actor }}"
+          echo ""
+
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "❌ PIPELINE STATUS: TEST FAILED"
+            echo "🔍 Action needed: Fix failing tests"
+            echo "📋 Check test-reports artifact for details"
+          elif [ "${{ needs.deploy.result }}" = "failure" ]; then
+            echo "⚠️ PIPELINE STATUS: DEPLOYMENT FAILED"
+            echo "🔄 Action taken: Automatic rollback executed"
+            echo "🛠️ Action needed: Fix deployment issues"
+          elif [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "✅ PIPELINE STATUS: FULLY SUCCESSFUL"
+            echo "🎉 New version deployed and running"
+          else
+            echo "ℹ️ PIPELINE STATUS: PR/NON-MASTER BRANCH"
+            echo "✅ Tests passed, ready for merge"
+          fi
