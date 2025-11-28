@@ -113,6 +113,8 @@ class AutoOptimizationEngine:
 
             except Exception as e:
                 self.logger.error(f"❌ 최적화 중 오류: {e}")
+                import traceback
+                self.logger.error(f"상세 오류: {traceback.format_exc()}")
 
             time.sleep(self.optimization_interval)
 
@@ -319,7 +321,8 @@ class AutoOptimizationEngine:
 
         # 매도 신호 파일 생성 (트레이딩 엔진이 읽어서 처리)
         with open('sell_signals.json', 'w', encoding='utf-8') as f:
-            json.dump(sell_signals, f, ensure_ascii=False, indent=2)
+            json.dump(sell_signals, f, ensure_ascii=False,
+                      indent=2, cls=DateTimeEncoder)
 
         self.logger.info(f"📤 {len(sell_signals)}개 매도 신호 생성")
 
