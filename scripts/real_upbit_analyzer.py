@@ -196,12 +196,12 @@ class UpbitDataSyncManager:
 
             total_synced = 0
 
-            for market in markets:
+            # 전체 주문 내역 조회 (상태별로)
+            for state in ['done', 'cancel']:
                 try:
-                    # 완료된 주문만 조회
-                    orders = self.upbit.get_orders(
-                        market=market, state='done', limit=100)
-
+                    # 완료된/취소된 주문 조회
+                    orders = self.upbit.get_order(state=state, limit=100)
+                    
                     if not orders:
                         continue
 
@@ -222,33 +222,28 @@ class UpbitDataSyncManager:
                             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """, (
                             order['uuid'],
-                            order['market'],
+                            order.get('market', ''),
                             order['side'],
-                            order['ord_type'],
-                            float(order['price']) if order['price'] else 0,
-                            float(order['volume']) if order['volume'] else 0,
-                            float(order['remaining_volume']
-                                  ) if order['remaining_volume'] else 0,
-                            float(order['reserved_fee']
-                                  ) if order['reserved_fee'] else 0,
-                            float(order['remaining_fee']
-                                  ) if order['remaining_fee'] else 0,
-                            float(order['paid_fee']
-                                  ) if order['paid_fee'] else 0,
-                            float(order['locked']) if order['locked'] else 0,
-                            float(order['executed_volume']
-                                  ) if order['executed_volume'] else 0,
-                            order['trades_count'],
-                            order['created_at'],
-                            order['updated_at'],
-                            order['state'],
+                            order.get('ord_type', ''),
+                            float(order.get('price', 0)) if order.get('price') else 0,
+                            float(order.get('volume', 0)) if order.get('volume') else 0,
+                            float(order.get('remaining_volume', 0)) if order.get('remaining_volume') else 0,
+                            float(order.get('reserved_fee', 0)) if order.get('reserved_fee') else 0,
+                            float(order.get('remaining_fee', 0)) if order.get('remaining_fee') else 0,
+                            float(order.get('paid_fee', 0)) if order.get('paid_fee') else 0,
+                            float(order.get('locked', 0)) if order.get('locked') else 0,
+                            float(order.get('executed_volume', 0)) if order.get('executed_volume') else 0,
+                            order.get('trades_count', 0),
+                            order.get('created_at', ''),
+                            order.get('updated_at', ''),
+                            order.get('state', ''),
                             json.dumps(order, ensure_ascii=False)
                         ))
 
                         total_synced += 1
 
                 except Exception as e:
-                    print(f"⚠️ {market} 동기화 오류: {e}")
+                    print(f"⚠️ {state} 주문 동기화 오류: {e}")
                     continue
 
             # 동기화 상태 업데이트
@@ -283,7 +278,7 @@ class UpbitDataSyncManager:
             total_synced = 0
 
             # 입금 내역
-            deposits = self.upbit.get_deposits(limit=200)
+            deposits = self.upbit.get_deposit_list()
             if deposits:
                 for deposit in deposits:
                     cursor.execute(
@@ -312,7 +307,7 @@ class UpbitDataSyncManager:
                     total_synced += 1
 
             # 출금 내역
-            withdraws = self.upbit.get_withdraws(limit=200)
+            withdraws = self.upbit.get_withdraw_list()
             if withdraws:
                 for withdraw in withdraws:
                     cursor.execute(
@@ -640,60 +635,32 @@ def main():
         # 동기화 매니저 초기화
         sync_manager = UpbitDataSyncManager()
 
-        print("\n📋 실행할 작업을 선택하세요:")
-        print("1. 전체 데이터 동기화")
-        print("2. 투자 성과 조회")
-        print("3. 종합 리포트 생성")
-        print("4. 자동 동기화 (주기적 실행)")
-
-        choice = input("\n선택 (1-4): ").strip()
-
-        if choice == '1':
-            sync_manager.sync_all_data()
-
-        elif choice == '2':
-            summary = sync_manager.get_investment_summary()
-            if summary:
-                performance = summary['performance']
-                print(f"\n📊 최신 투자 성과:")
-                print(f"💰 순 투자금: {performance['net_investment']:,.0f}원")
-                print(
-                    f"📈 현재 가치: {performance['current_portfolio_value']:,.0f}원")
-                print(
-                    f"💹 총 손익: {performance['total_pnl']:,.0f}원 ({performance['roi_percentage']:+.2f}%)")
-            else:
-                print("❌ 투자 데이터가 없습니다. 먼저 동기화를 실행하세요.")
-
-        elif choice == '3':
-            report = sync_manager.generate_comprehensive_report()
-            print(f"\n{report}")
-
-            # 파일로 저장
-            save_choice = input("\n💾 리포트를 파일로 저장하시겠습니까? (y/N): ").lower()
-            if save_choice in ['y', 'yes']:
-                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-                filename = f"upbit_investment_report_{timestamp}.txt"
-                with open(filename, 'w', encoding='utf-8') as f:
-                    f.write(report)
-                print(f"✅ 리포트 저장: {filename}")
-
-        elif choice == '4':
-            print("🔄 자동 동기화 모드 시작...")
-            print("30분마다 업비트 데이터를 동기화합니다.")
-            print("Ctrl+C로 중지할 수 있습니다.")
-
-            try:
-                while True:
-                    sync_manager.sync_all_data()
-                    print(
-                        f"⏰ 다음 동기화: 30분 후 ({(datetime.now() + timedelta(minutes=30)).strftime('%H:%M')})")
-                    time.sleep(1800)  # 30분 대기
-
-            except KeyboardInterrupt:
-                print("\n⏹️ 자동 동기화 중지됨")
-
-        else:
-            print("❌ 잘못된 선택입니다.")
+        print("\n� 자동으로 전체 데이터 동기화를 실행합니다...")
+        
+        # 전체 데이터 동기화 실행
+        sync_manager.sync_all_data()
+        
+        # 투자 성과 출력
+        summary = sync_manager.get_investment_summary()
+        if summary:
+            performance = summary['performance']
+            print(f"\n📊 최신 투자 성과:")
+            print(f"💰 순 투자금: {performance['net_investment']:,.0f}원")
+            print(f"📈 현재 가치: {performance['current_portfolio_value']:,.0f}원")
+            print(f"💹 총 손익: {performance['total_pnl']:,.0f}원 ({performance['roi_percentage']:+.2f}%)")
+        
+        # 종합 리포트 생성 및 저장
+        report = sync_manager.generate_comprehensive_report()
+        print(f"\n{report}")
+        
+        # 리포트 자동 저장
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"upbit_investment_report_{timestamp}.txt"
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(report)
+        print(f"\n✅ 리포트 자동 저장: {filename}")
+        
+        print("\n✅ 업비트 데이터 동기화 완료!")
 
     except Exception as e:
         print(f"❌ 실행 중 오류 발생: {e}")
