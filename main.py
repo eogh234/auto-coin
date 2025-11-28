@@ -85,7 +85,7 @@ def main():
         else:
             # 거래 모드 (실거래 또는 테스트)
             trading = TradingEngine(config, notifier, learning, args.test)
-            
+
             # 데이터 동기화 시스템 통합
             sync_integration = None
             if DATA_SYNC_AVAILABLE and not args.test:  # 실거래 모드에서만
@@ -93,15 +93,15 @@ def main():
                     logging.info("🔄 업비트 데이터 동기화 시스템 통합 중...")
                     sync_integration = integrate_with_trading_bot(trading)
                     logging.info("✅ 데이터 동기화 시스템 통합 완료")
-                    
+
                     # 동기화 상태 리포트
                     status_report = sync_integration.generate_sync_status_report()
                     logging.info(f"데이터 동기화 상태:\n{status_report}")
-                    
+
                 except Exception as e:
                     logging.warning(f"⚠️ 데이터 동기화 시스템 통합 실패: {e}")
                     logging.warning("기본 모드로 계속 실행합니다.")
-            
+
             try:
                 # 거래 시스템 실행
                 trading.run_trading_loop()
