@@ -229,6 +229,12 @@ class AutoOptimizationEngine:
     def _analyze_current_performance(self):
         """현재 성능 분석 (실제 업비트 데이터 기반)"""
         try:
+            # 변수 초기화
+            recent_trades = []
+            pending_trades = []
+            total_unrealized_profit = 0
+            pending_analysis = []
+
             if self.use_real_data:
                 # 실제 업비트 데이터 분석
                 print("📊 실제 업비트 데이터로 성능 분석 중...")
@@ -236,13 +242,6 @@ class AutoOptimizationEngine:
                 # 포트폴리오 현재 상태
                 portfolio_data = self.upbit_sync.get_investment_summary()
                 current_roi = portfolio_data.get('roi_percentage', 0)
-
-                # 최근 거래 내역은 직접 DB에서 조회
-                # recent_orders = self.upbit_sync.get_recent_orders(limit=50)
-
-                # 실시간 수익률 계산 (간소화)
-                total_unrealized_profit = 0
-                pending_analysis = []
 
                 # 실제 데이터 기반이므로 portfolio_data에서 직접 정보 추출
                 print(f"실제 ROI: {current_roi:.2f}%")
@@ -272,9 +271,6 @@ class AutoOptimizationEngine:
                 conn.close()
 
                 # 실시간 수익률 계산
-                total_unrealized_profit = 0
-                pending_analysis = []
-
                 for trade in pending_trades:
                     try:
                         coin = trade[2]
