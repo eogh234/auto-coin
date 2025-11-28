@@ -51,7 +51,18 @@ class AutoOptimizationEngine:
         self.config = ConfigManager()
         self.learning = LearningSystem(self.config)
         self.running = False
-        self.optimization_interval = 300  # 5분마다 최적화
+
+        # 다층 최적화 간격 설정
+        self.monitoring_interval = 120       # 2분 - 긴급 모니터링
+        self.analysis_interval = 1800        # 30분 - 성능 분석
+        self.optimization_interval = 7200    # 2시간 - 매개변수 조정
+        self.learning_interval = 86400       # 24시간 - 심층 학습
+
+        # 마지막 실행 시간 추적
+        self.last_analysis = 0
+        self.last_optimization = 0
+        self.last_learning = 0
+
         self.analysis_thread = None
 
         # 최적화 이력 저장
@@ -91,32 +102,116 @@ class AutoOptimizationEngine:
         self.logger.info("⏹️ 자동 최적화 엔진 중지")
 
     def _optimization_loop(self):
-        """최적화 메인 루프"""
+        """다층 최적화 메인 루프"""
         while self.running:
             try:
-                self.logger.info("🔍 자동 최적화 분석 시작")
+                current_time = time.time()
 
-                # 1. 현재 성능 분석
-                performance = self._analyze_current_performance()
+                # 🚨 긴급 모니터링 (2분마다)
+                self._urgent_monitoring()
 
-                # 2. 개선점 도출
-                improvements = self._identify_improvements(performance)
+                # 📈 성능 분석 (30분마다)
+                if current_time - self.last_analysis >= self.analysis_interval:
+                    self.logger.info("📈 성능 분석 시작 (30분 주기)")
+                    performance = self._analyze_current_performance()
+                    self._record_performance_metrics(performance)
+                    self.last_analysis = current_time
 
-                # 3. 자동 개선 적용
-                self._apply_automatic_improvements(improvements)
+                # 🔧 매개변수 최적화 (2시간마다)
+                if current_time - self.last_optimization >= self.optimization_interval:
+                    self.logger.info("🔧 매개변수 최적화 시작 (2시간 주기)")
+                    performance = self._analyze_current_performance()
+                    improvements = self._identify_improvements(performance)
+                    self._apply_automatic_improvements(improvements)
+                    self._record_optimization_results(
+                        performance, improvements)
+                    self.last_optimization = current_time
 
-                # 4. 결과 기록
-                self._record_optimization_results(performance, improvements)
-
-                self.logger.info(
-                    f"✅ 최적화 완료, {self.optimization_interval}초 후 재실행")
+                # 🧠 심층 학습 (24시간마다)
+                if current_time - self.last_learning >= self.learning_interval:
+                    self.logger.info("🧠 심층 학습 시작 (24시간 주기)")
+                    self._deep_learning_optimization()
+                    self.last_learning = current_time
 
             except Exception as e:
                 self.logger.error(f"❌ 최적화 중 오류: {e}")
                 import traceback
                 self.logger.error(f"상세 오류: {traceback.format_exc()}")
 
-            time.sleep(self.optimization_interval)
+            # 다음 모니터링까지 대기 (2분)
+            time.sleep(self.monitoring_interval)
+
+    def _urgent_monitoring(self):
+        """🚨 긴급 모니터링 (2분마다)"""
+        try:
+            # 1. 매도 조건 충족 확인
+            performance = self._analyze_current_performance()
+            pending_analysis = performance.get('pending_analysis', [])
+            sellable_positions = [
+                p for p in pending_analysis if p.get('should_sell', False)]
+
+            if sellable_positions:
+                self.logger.info(f"🚨 긴급: {len(sellable_positions)}개 매도 조건 충족")
+                self._trigger_sell_positions(sellable_positions)
+
+            # 2. 시스템 헬스 체크
+            memory_mb = performance.get('memory_usage_mb', 0)
+            if memory_mb > 300:  # 300MB 초과 시
+                self.logger.warning(f"⚠️ 메모리 사용량 주의: {memory_mb:.1f}MB")
+                self._optimize_memory_usage()
+
+        except Exception as e:
+            self.logger.error(f"긴급 모니터링 오류: {e}")
+
+    def _deep_learning_optimization(self):
+        """🧠 심층 학습 최적화 (24시간마다)"""
+        try:
+            self.logger.info("🧠 심층 패턴 분석 및 전략 재구성")
+
+            # 24시간 데이터 기반 전략 재평가
+            performance_history = self.optimization_history[-24:] if len(
+                self.optimization_history) >= 24 else self.optimization_history
+
+            if len(performance_history) >= 5:
+                # 성공률 분석
+                avg_efficiency = sum(p.get('performance', {}).get('signal_efficiency', {}).get(
+                    'efficiency', 0) for p in performance_history) / len(performance_history)
+
+                if avg_efficiency < 0.1:  # 10% 미만
+                    self.logger.info("📊 전략 재구성 필요 - 성공률 낮음")
+                    self._restructure_strategy()
+
+        except Exception as e:
+            self.logger.error(f"심층 학습 오류: {e}")
+
+    def _restructure_strategy(self):
+        """전략 재구성"""
+        try:
+            # RSI 임계값 대폭 조정
+            current_params = self.learning.adaptive_params.copy()
+            current_params['rsi_buy_threshold'] = 25  # 더 보수적으로
+            current_params['min_profit_target'] = 0.01  # 1%로 낮춤
+
+            self.learning.adaptive_params = current_params
+            self.logger.info("🔄 전략 재구성 완료: 더 보수적인 매개변수 적용")
+
+        except Exception as e:
+            self.logger.error(f"전략 재구성 오류: {e}")
+
+    def _record_performance_metrics(self, performance):
+        """성능 메트릭 기록"""
+        try:
+            signal_eff = performance.get('signal_efficiency', {})
+            self.performance_metrics['signal_efficiency'].append(
+                signal_eff.get('efficiency', 0))
+
+            # 최근 50개 데이터만 유지
+            for key in self.performance_metrics:
+                if len(self.performance_metrics[key]) > 50:
+                    self.performance_metrics[key] = self.performance_metrics[key][-50:]
+
+        except Exception as e:
+            self.logger.error(f"성능 메트릭 기록 오류: {e}")
 
     def _analyze_current_performance(self):
         """현재 성능 분석"""
@@ -443,13 +538,35 @@ def main():
         # 연속 모니터링 시작
         optimizer.start_optimization_engine()
 
-        print("🔄 자동 최적화 엔진이 백그라운드에서 실행 중...")
+        print("🔄 다층 자동 최적화 시스템 가동 중...")
+        print("📋 최적화 간격:")
+        print("   🚨 긴급 모니터링: 2분마다")
+        print("   📈 성능 분석: 30분마다")
+        print("   🔧 매개변수 최적화: 2시간마다")
+        print("   🧠 심층 학습: 24시간마다")
         print("Ctrl+C로 중지할 수 있습니다.")
 
         # 메인 루프
+        status_counter = 0
         while True:
             time.sleep(60)  # 1분마다 상태 출력
-            print(f"⏰ {datetime.now().strftime('%H:%M:%S')} - 자동 최적화 엔진 실행 중...")
+            status_counter += 1
+
+            if status_counter % 5 == 0:  # 5분마다 상태 출력
+                current_time = datetime.now()
+                print(
+                    f"⏰ {current_time.strftime('%H:%M:%S')} - 다층 최적화 시스템 실행 중...")
+
+                # 다음 최적화까지 남은 시간 표시
+                next_analysis = (optimizer.last_analysis +
+                                 optimizer.analysis_interval - time.time()) // 60
+                next_optimization = (
+                    optimizer.last_optimization + optimizer.optimization_interval - time.time()) // 60
+
+                if next_analysis > 0:
+                    print(f"   📈 다음 성능 분석: {int(next_analysis)}분 후")
+                if next_optimization > 0:
+                    print(f"   🔧 다음 매개변수 최적화: {int(next_optimization)}분 후")
 
     except KeyboardInterrupt:
         print("\n⏹️ 사용자에 의한 중지")
