@@ -19,10 +19,8 @@ scikit-learn>=1.0.0      # 머신러닝 알고리즘
 matplotlib>=3.5.0        # 차트 생성
 
 # 🛠️ Development Tools (CI/CD용)
-pytest>=6.0.0           # 단위 테스트
 flake8>=4.0.0            # 코드 스타일 검사
 black>=22.0.0            # 코드 포맷팅
 
 # 🚀 Deployment & Monitoring
-pyyaml>=6.0              # GitHub Actions 모니터링용
 safety>=2.0.0            # 보안 취약점 검사

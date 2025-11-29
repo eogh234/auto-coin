@@ -199,10 +199,10 @@ jobs:
             git fetch origin && git reset --hard origin/master
             
             # Install deps
-            pip install -r requirements.txt || echo "⚠️ Dependency warning"
+            pip3 install -r requirements.txt || echo "⚠️ Dependency warning"
             
             # Validate
-            python -c "import yaml; yaml.safe_load(open('config.yaml')); import modules; print('✅ Validation OK')"
+            python3 -c "import yaml; yaml.safe_load(open('config.yaml')); import modules; print('✅ Validation OK')"
             
             # Restart
             pm2 restart auto-trader auto-optimizer || pm2 start ecosystem.config.js
