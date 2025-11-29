@@ -139,21 +139,46 @@ jobs:
     name: 🚀 Deploy to Production
     runs-on: ubuntu-latest
     needs: test
+    # Only run deployment if tests pass and it's a master branch push
     if: github.ref == 'refs/heads/master' && github.event_name == 'push' && needs.test.outputs.test-status == 'pass'
 
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
+      - name: 🔧 Verify Deployment Prerequisites
+        id: check-deployment
+        run: |
+          echo "🔍 Checking deployment prerequisites..."
+
+          # Check if this is a deployment environment (secrets available)
+          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ] && [ -n "${{ secrets.HOST }}" ] && [ -n "${{ secrets.USERNAME }}" ]; then
+            echo "✅ All deployment secrets are available"
+            echo "deploy-ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Deployment secrets not found - skipping deployment"
+            echo "ℹ️ This is normal for forks or when secrets aren't configured"
+            echo "deploy-ready=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: 🔧 Setup SSH
+        if: steps.check-deployment.outputs.deploy-ready == 'true'
         run: |
           mkdir -p ~/.ssh
+
+          # Setup SSH key
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+
+          # Add host to known_hosts
+          echo "🔗 Adding ${{ secrets.HOST }} to known hosts..."
+          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
+
+          echo "✅ SSH setup completed"
 
       - name: 🚀 Deploy with Backup
         id: deploy
+        if: steps.check-deployment.outputs.deploy-ready == 'true'
         run: |
           ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
             set -e
@@ -193,17 +218,28 @@ jobs:
           EOF
 
       - name: 🎉 Success Notification
-        if: success()
+        if: success() && steps.check-deployment.outputs.deploy-ready == 'true'
         run: |
           echo "🎉 ✅ DEPLOYMENT SUCCESSFUL!"
           echo "📊 Coverage: ${{ needs.test.outputs.coverage }}"
           echo "🚀 Services running on production"
 
+      - name: ℹ️ Deployment Skipped
+        if: steps.check-deployment.outputs.deploy-ready == 'false'
+        run: |
+          echo "ℹ️ Deployment was skipped (secrets not configured)"
+          echo "✅ Tests passed successfully"
+          echo "📋 To enable deployment, configure these GitHub Secrets:"
+          echo "   - SSH_PRIVATE_KEY: SSH private key for server access"
+          echo "   - HOST: Server hostname or IP address"  
+          echo "   - USERNAME: SSH username for server"
+
   rollback:
     name: 🔄 Emergency Rollback
     runs-on: ubuntu-latest
     needs: [test, deploy]
-    if: always() && (needs.deploy.result == 'failure' && needs.test.outputs.test-status == 'pass')
+    # Only rollback if deploy failed and secrets are available
+    if: always() && needs.deploy.result == 'failure' && needs.test.outputs.test-status == 'pass'
 
     steps:
       - name: 🔧 Setup SSH for Rollback
@@ -274,6 +310,11 @@ jobs:
           elif [ "${{ needs.deploy.result }}" = "success" ]; then
             echo "✅ PIPELINE STATUS: FULLY SUCCESSFUL"
             echo "🎉 New version deployed and running"
+          elif [ "${{ needs.deploy.result }}" = "skipped" ]; then
+            echo "ℹ️ PIPELINE STATUS: TESTS PASSED, DEPLOYMENT SKIPPED"
+            echo "✅ All tests passed successfully"
+            echo "🔧 Deployment skipped (secrets not configured)"
+            echo "📋 Configure GitHub Secrets to enable deployment"
           else
             echo "ℹ️ PIPELINE STATUS: PR/NON-MASTER BRANCH"
             echo "✅ Tests passed, ready for merge"
