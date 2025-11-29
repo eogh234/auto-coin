@@ -59,13 +59,42 @@ jobs:
             echo "📋 Using template config for CI/CD testing..."
             cp config.template.yaml config.yaml
           fi
-          
+
           python -c "
           import yaml
-          with open('config.yaml', 'r', encoding='utf-8') as f:
-              config = yaml.safe_load(f)
-              assert 'upbit' in config and 'trading' in config
-              print('✅ Configuration validated')
+          import sys
+
+          try:
+              with open('config.yaml', 'r', encoding='utf-8') as f:
+                  config = yaml.safe_load(f)
+                  
+              # Check if config is valid
+              if config is None:
+                  print('❌ Config file is empty or invalid')
+                  sys.exit(1)
+              
+              if not isinstance(config, dict):
+                  print('❌ Config is not a valid dictionary')
+                  sys.exit(1)
+              
+              # Check required sections
+              required_sections = ['upbit', 'trading']
+              missing = []
+              
+              for section in required_sections:
+                  if section not in config or config[section] is None:
+                      missing.append(section)
+              
+              if missing:
+                  print(f'❌ Missing required sections: {missing}')
+                  sys.exit(1)
+              
+              print('✅ Configuration validation passed')
+              print(f'📋 Found sections: {list(config.keys())}')
+              
+          except Exception as e:
+              print(f'❌ Config validation failed: {e}')
+              sys.exit(1)
           "
 
       - name: 🧪 Run Tests with Coverage

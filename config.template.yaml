@@ -1,0 +1,81 @@
+# CI/CD test template config
+upbit:
+  access_key: "test_access_key_placeholder"
+  secret_key: "test_secret_key_placeholder"
+
+discord:
+  webhook_url: "https://discord.com/api/webhooks/test_placeholder"
+  enable_notifications: false
+  notify_trades: false
+  notify_signals: false
+  notify_errors: false
+  daily_report_time: "09:00"
+
+trading:
+  base_amount: 10000
+  dynamic_amount: true
+  balance_ratio: 0.05
+  min_amount: 5000
+  max_amount: 100000
+  balance_threshold: 100000
+  max_positions: 10
+  position_size_ratio: 0.2
+  max_daily_trades: 50
+  max_hourly_trades: 5
+  investment_ratio: 0.1
+  commission_rate: 0.0005
+  consecutive_loss_limit: 3
+  max_loss_per_trade: 0.03
+  daily_loss_limit: 0.05
+  max_consecutive_losses: 2
+  profit_target_ratio: 0.02
+  stop_loss_ratio: 0.03
+  take_profit_ratio: 0.06
+  trailing_stop: true
+  cycle_interval: 30
+  analysis_interval: 300
+
+technical_analysis:
+  rsi:
+    period: 14
+    oversold: 30
+    overbought: 70
+    buy_threshold: 40
+    sell_threshold: 60
+  macd:
+    fast_period: 12
+    slow_period: 26
+    signal_period: 9
+  bollinger:
+    period: 20
+    std_multiplier: 2
+  moving_averages:
+    short_period: 5
+    medium_period: 20
+    long_period: 60
+  volume_analysis:
+    volume_spike_threshold: 2.0
+    volume_period: 20
+
+market_analysis:
+  volatility:
+    threshold: 0.05
+    period: 24
+  breakout:
+    period: 10
+    threshold_ratio: 1.015
+    volume_confirmation: true
+
+optimization:
+  cache_duration: 60
+  api_call_delay: 0.1
+  max_retries: 3
+  log_level: "INFO"
+  log_file: "trading.log"
+  max_log_size: 10
+
+backtest:
+  initial_balance: 1000000
+  start_date: "2024-01-01"
+  end_date: "2024-12-31"
+  commission_rate: 0.0005
