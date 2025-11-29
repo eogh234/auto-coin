@@ -54,6 +54,12 @@ jobs:
 
       - name: 📊 Config Validation
         run: |
+          # Use template config for CI/CD if config.yaml doesn't exist
+          if [ ! -f "config.yaml" ] && [ -f "config.template.yaml" ]; then
+            echo "📋 Using template config for CI/CD testing..."
+            cp config.template.yaml config.yaml
+          fi
+          
           python -c "
           import yaml
           with open('config.yaml', 'r', encoding='utf-8') as f:
