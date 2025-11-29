@@ -152,7 +152,7 @@ jobs:
           echo "🔍 Checking deployment prerequisites..."
 
           # Check if this is a deployment environment (secrets available)
-          if [ -n "${{ secrets.SSH_PRIVATE_KEY }}" ] && [ -n "${{ secrets.HOST }}" ] && [ -n "${{ secrets.USERNAME }}" ]; then
+          if [ -n "${{ secrets.DEPLOY_SSH_KEY }}" ] && [ -n "${{ secrets.DEPLOY_HOST }}" ] && [ -n "${{ secrets.DEPLOY_USERNAME }}" ]; then
             echo "✅ All deployment secrets are available"
             echo "deploy-ready=true" >> $GITHUB_OUTPUT
           else
@@ -167,12 +167,12 @@ jobs:
           mkdir -p ~/.ssh
 
           # Setup SSH key
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
           # Add host to known_hosts
-          echo "🔗 Adding ${{ secrets.HOST }} to known hosts..."
-          ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
+          echo "🔗 Adding ${{ secrets.DEPLOY_HOST }} to known hosts..."
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
           echo "✅ SSH setup completed"
 
@@ -180,7 +180,7 @@ jobs:
         id: deploy
         if: steps.check-deployment.outputs.deploy-ready == 'true'
         run: |
-          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+          ssh ${{ secrets.DEPLOY_USERNAME }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             set -e
             echo "🔄 Starting deployment..."
             
@@ -230,9 +230,9 @@ jobs:
           echo "ℹ️ Deployment was skipped (secrets not configured)"
           echo "✅ Tests passed successfully"
           echo "📋 To enable deployment, configure these GitHub Secrets:"
-          echo "   - SSH_PRIVATE_KEY: SSH private key for server access"
-          echo "   - HOST: Server hostname or IP address"  
-          echo "   - USERNAME: SSH username for server"
+          echo "   - DEPLOY_SSH_KEY: SSH private key for server access"
+          echo "   - DEPLOY_HOST: Server hostname or IP address"  
+          echo "   - DEPLOY_USERNAME: SSH username for server"
 
   rollback:
     name: 🔄 Emergency Rollback
@@ -245,13 +245,13 @@ jobs:
       - name: 🔧 Setup SSH for Rollback
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
       - name: ⚠️ Perform Rollback
         run: |
-          ssh ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+          ssh ${{ secrets.DEPLOY_USERNAME }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
             echo "🚨 EMERGENCY ROLLBACK INITIATED"
             
             cd /home/ubuntu/auto-trader-v2 2>/dev/null || cd /home/ubuntu/auto-coin || cd /home/ubuntu/auto-bitcoin-trading
