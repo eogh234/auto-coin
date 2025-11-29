@@ -39,15 +39,7 @@ jobs:
         run: |
           bandit -r . -f json -o bandit-report.json || true
           if [ -f bandit-report.json ]; then
-            HIGH_ISSUES=$(python -c "
-            import json
-            try:
-                with open('bandit-report.json') as f:
-                    report = json.load(f)
-                    high = [i for i in report.get('results', []) if i.get('issue_severity') == 'HIGH']
-                    print(len(high))
-            except: print(0)
-            ")
+            HIGH_ISSUES=$(python3 -c "import json; report = json.load(open('bandit-report.json')); high = [i for i in report.get('results', []) if i.get('issue_severity') == 'HIGH']; print(len(high))" 2>/dev/null || echo "0")
             echo "🔍 Security scan: $HIGH_ISSUES high-severity issues found"
           fi
         continue-on-error: true
