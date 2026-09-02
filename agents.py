@@ -274,6 +274,7 @@ def portfolio_manager_node(state: AgentState):
     prompt = f"{sys_prompt}\n\n[현재 포트폴리오 잔고]:\n{state.get('current_portfolio', '없음')}\n\n[거시뷰]:\n{state['macro_view']}\n\n[섹터뷰]:\n{state['sector_view']}\n\n[퀀트뷰]:\n{state['quant_view']}\n\n[리스크뷰]:\n{state['risk_view']}"
     response = llm_portfolio.invoke([HumanMessage(content=prompt)])
     print(f"  👉 [portfolio_manager] 최종 결정 완료")
+    time.sleep(10)  # Groq TPM Rate Limit 방지 딜레이
     return {"final_decision": response.content}
 
 # ============================================================
