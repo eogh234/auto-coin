@@ -169,7 +169,7 @@ class ProjectOrchestrator:
                 try:
                     import subprocess
                     subprocess.run(
-                        ["python", "asset_manager.py", "--reason", "국내 자산 리밸런싱 완료 보고"],
+                        [sys.executable, "asset_manager.py", "--reason", "국내 자산 리밸런싱 완료 보고"],
                         cwd=config.BASE_DIR,
                         capture_output=True,
                         text=True
@@ -182,7 +182,7 @@ class ProjectOrchestrator:
                 try:
                     import subprocess
                     subprocess.run(
-                        ["python", "asset_manager.py", "--reason", "국내 자산 매매 보류 현황 보고"],
+                        [sys.executable, "asset_manager.py", "--reason", "국내 자산 매매 보류 현황 보고"],
                         cwd=config.BASE_DIR,
                         capture_output=True,
                         text=True

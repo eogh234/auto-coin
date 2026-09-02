@@ -83,7 +83,7 @@ def main():
 
     try:
         subprocess.run(
-            ["python", "asset_manager.py", "--reason", "미국 자산 리밸런싱 완료 보고"],
+            [sys.executable, "asset_manager.py", "--reason", "미국 자산 리밸런싱 완료 보고"],
             cwd=config.BASE_DIR,
             capture_output=True,
             text=True
