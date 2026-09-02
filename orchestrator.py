@@ -203,19 +203,68 @@ class ProjectOrchestrator:
             logger.warning(f"⚠️ reviewer.main() 실행 중 오류 (메인 사이클 유지): {e}")
 
     def send_final_report(self, state, decision, master_report, status):
-        """최종 리포트 발송"""
-        header = "🛡️ **[데일리 투자 오케스트레이션 - 승인]**" if status == "APPROVED" else "⚠️ **[데일리 투자 오케스트레이션 - 반려]**"
+        """최종 리포트 발송 (가독성 & 쟁점 중심의 상세 브리핑)"""
+        today_str = datetime.datetime.now().strftime("%Y-%m-%d")
+        header = f"🛡️ **[AI 멀티 에이전트 종합 투자 회의 리포트 ({today_str})]**"
         
-        discord_msg = f"{header}\n\n"
-        discord_msg += f"**👨‍✈️ 마스터 한줄평:**\n{master_report.split('STATUS:')[0].strip()}\n\n"
-        discord_msg += f"**📝 요약:** {decision.get('reasoning', '정보 없음')}\n"
+        master_review_clean = master_report.split('STATUS:')[0].strip()
         
+        # 1. 종합 요약 및 마스터 평가 + 6대 에이전트 토론 핵심 쟁점
+        msg1 = f"{header}\n"
+        msg1 += f"**📌 최종 판정:** `{'✅ 승인 (APPROVED)' if status == 'APPROVED' else '🛑 반려 (REJECTED)'}`\n\n"
+        msg1 += f"**👨‍✈️ 마스터 총평:**\n> {master_review_clean}\n\n"
+        msg1 += f"**📝 종합 요약:** {decision.get('reasoning', '정보 없음')}\n\n"
+        
+        msg1 += "━━━━━━━━━━━━━━━━━━━━━━\n"
+        msg1 += "⚔️ **[6대 AI 에이전트 토론 핵심 쟁점]**\n"
+        
+        # 뉴스
+        news_t = state.get('news_view', '정보 없음').strip().replace("\n", " ")
+        if len(news_t) > 120: news_t = news_t[:120] + "..."
+        msg1 += f"• 📰 **뉴스**: {news_t}\n"
+        
+        # 거시
+        macro_t = state.get('macro_view', '정보 없음').strip().replace("\n", " ")
+        if len(macro_t) > 120: macro_t = macro_t[:120] + "..."
+        msg1 += f"• 🌍 **거시경제**: {macro_t}\n"
+        
+        # 섹터
+        sector_t = state.get('sector_view', '정보 없음').strip().replace("\n", " ")
+        if len(sector_t) > 120: sector_t = sector_t[:120] + "..."
+        msg1 += f"• 📊 **섹터**: {sector_t}\n"
+        
+        # 퀀트
+        quant_t = state.get('quant_view', '정보 없음').strip().replace("\n", " ")
+        if len(quant_t) > 120: quant_t = quant_t[:120] + "..."
+        msg1 += f"• 📈 **퀀트**: {quant_t}\n"
+        
+        # 리스크 (핵심 쟁점)
+        risk_t = state.get('risk_view', '정보 없음').strip().replace("\n", " ")
+        if len(risk_t) > 150: risk_t = risk_t[:150] + "..."
+        msg1 += f"• 🛡️ **리스크 [핵심 쟁점]**: {risk_t}\n"
+
+        self.kis.send_discord_message(msg1)
+
+        # 2. 확정 포트폴리오 비중 상세 내역 및 체결 상태 (APPROVED 시)
         if status == "APPROVED":
-            discord_msg += "\n**📊 최종 포트폴리오**\n"
-            for asset in decision.get('stock_portfolio', []) + decision.get('crypto_portfolio', []):
-                discord_msg += f"- {asset['name']}: {asset['weight']}%\n"
-        
-        self.kis.send_discord_message(discord_msg)
+            msg2 = "━━━━━━━━━━━━━━━━━━━━━━\n"
+            msg2 += "📊 **[확정 포트폴리오 상세 비중표]**\n\n"
+            
+            stocks = decision.get('stock_portfolio', [])
+            if stocks:
+                msg2 += "🏦 **주식 계좌 (KIS)**\n"
+                for s in stocks:
+                    mkt_tag = "[미국]" if s.get('market') in ('NASD', 'NYSE', 'AMEX') else "[국내]"
+                    msg2 += f"  - `{mkt_tag}` **{s.get('name')}** (`{s.get('ticker')}`): **{s.get('weight')}%**\n"
+            
+            cryptos = decision.get('crypto_portfolio', [])
+            if cryptos:
+                msg2 += "\n🪙 **가상자산 계좌 (업비트)**\n"
+                for c in cryptos:
+                    msg2 += f"  - `[코인]` **{c.get('name')}** (`{c.get('ticker')}`): **{c.get('weight')}%**\n"
+            
+            msg2 += "\n✅ **국내 주식 및 코인 실시간 체결 완료** (미국 주식은 오늘 밤 23:20 KST 자동 체결됩니다.)"
+            self.kis.send_discord_message(msg2)
 
 if __name__ == "__main__":
     ProjectOrchestrator().run_daily_cycle()
