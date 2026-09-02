@@ -258,18 +258,9 @@ class KisClient:
                 - "asset": 자산 보고
                 - "daily": 일반 알림
         """
-        # 채널 자동 감지 (메시지 내용 기반)
+        # 채널 통일: 투자 관련 모든 메시지(자산 현황, 체결 알림, 회의 결과)를 단일 투자 채널로 통합 전송
         if not channel:
-            if message.startswith("🚨") or message.startswith("💸") or message.startswith("📈"):
-                channel = "investment"
-            elif message.startswith("📊") or message.startswith("💰") or message.startswith("📋") or "자산" in message:
-                channel = "asset"
-            elif message.startswith("🌙") or "리밸런싱" in message:
-                channel = "investment"
-            elif message.startswith("✅") and "시스템" in message:
-                channel = "daily"
-            else:
-                channel = "daily"
+            channel = "investment"
         
         try:
             # shared 라이브러리 경로 추가
@@ -277,14 +268,8 @@ class KisClient:
             if _shared_parent not in sys.path:
                 sys.path.insert(0, _shared_parent)
             
-            from shared.discord_notifier import send_daily, send_investment_report, send_asset_report
-            
-            if channel == "investment":
-                send_investment_report("투자 알림", message)
-            elif channel == "asset":
-                send_asset_report("자산 현황", message)
-            else:
-                send_daily(message, "💬 시스템 알림")
+            from shared.discord_notifier import send_investment_report
+            send_investment_report("투자 및 자산 알림", message)
         except ImportError:
             # Fallback: 기존 방식
             webhook_url = os.environ.get("DISCORD_WEBHOOK_URL")
