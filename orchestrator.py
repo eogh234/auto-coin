@@ -144,12 +144,18 @@ class ProjectOrchestrator:
                     print(f"  👉 [{key.split('_')[0].upper()}] 분석 완료")
                     final_state.update(value)
             
-            # 3. 결정안 파싱
-            decision_raw = final_state.get('final_decision', '{}')
+            # 3. 결정안 파싱 (안전한 JSON 추출)
+            decision_raw = final_state.get('final_decision', '{}').strip()
             if "```json" in decision_raw:
-                decision_raw = decision_raw.split("```json\n")[1].split("\n```")[0]
+                decision_raw = decision_raw.split("```json")[1].split("```")[0].strip()
             elif "```" in decision_raw:
-                decision_raw = decision_raw.replace("```", "")
+                decision_raw = decision_raw.split("```")[1].split("```")[0].strip()
+            
+            if "{" in decision_raw and "}" in decision_raw:
+                start_idx = decision_raw.find("{")
+                end_idx = decision_raw.rfind("}") + 1
+                decision_raw = decision_raw[start_idx:end_idx]
+
             decision_json = json.loads(decision_raw)
 
             # 4. 마스터 에이전트 최종 검토
