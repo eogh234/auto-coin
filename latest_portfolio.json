@@ -1,0 +1,43 @@
+{
+    "date": "2026-06-30",
+    "reasoning": "거시, 섹터, 퀀트, 리스크 에이전트의 의견을 종합하여, 주식과 코인 포트폴리오를 구성하였습니다. 주식 포트폴리오에서는 삼성전자, SK하이닉스, NVIDIA를 선정하였으며, 코인 포트폴리오에서는 비트코인과 이더리움을 선정하였습니다. 각 자산의 비중은 펀더멘털과 모멘텀을 고려하여 결정하였습니다.",
+    "portfolio": [
+        {
+            "ticker": "005930",
+            "name": "삼성전자",
+            "weight": 20,
+            "market": "KR"
+        },
+        {
+            "ticker": "000660",
+            "name": "SK하이닉스",
+            "weight": 15,
+            "market": "KR"
+        },
+        {
+            "ticker": "NVDA",
+            "name": "엔비디아",
+            "weight": 15,
+            "market": "NASD"
+        },
+        {
+            "ticker": "AAPL",
+            "name": "애플",
+            "weight": 50,
+            "market": "NASD"
+        },
+        {
+            "ticker": "KRW-BTC",
+            "name": "비트코인",
+            "weight": 70,
+            "market": "CRYPTO"
+        },
+        {
+            "ticker": "KRW-ETH",
+            "name": "이더리움",
+            "weight": 30,
+            "market": "CRYPTO"
+        }
+    ],
+    "master_status": "REJECTED"
+}

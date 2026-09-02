@@ -1,0 +1,8 @@
+.env
+.kis_token.json
+venv/
+__pycache__/
+*.pyc
+*.log
+*.db
+execution_log.txt
