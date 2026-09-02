@@ -97,10 +97,21 @@ class ProjectOrchestrator:
         response = llm_master.invoke([HumanMessage(content=review_prompt)])
         return response.content
 
-    def run_daily_cycle(self):
-        """전체 인베스트먼트 라이프사이클을 실행합니다."""
+    def run_daily_cycle(self, mode: str = "REGULAR", emergency_reason: str = ""):
+        """
+        전체 인베스트먼트 라이프사이클을 실행합니다.
+        
+        Args:
+            mode: "REGULAR" (정기 회의) | "EMERGENCY" (비상 리스크 스크럼)
+            emergency_reason: 비상 회의 소집 사유
+        """
+        is_emergency = mode.upper() == "EMERGENCY"
+        meeting_label = "🚨 [비상 리스크 스크럼 긴급 회의]" if is_emergency else "🛡️ [정기 AI 종합 투자 회의]"
+        
         print("\n" + "="*50)
-        print(" 🚀 Antigravity Orchestrator 가동 시작")
+        print(f" {meeting_label} 가동 시작")
+        if is_emergency and emergency_reason:
+            print(f" ⚠️ 비상 소집 사유: {emergency_reason}")
         print("="*50)
 
         try:
@@ -112,6 +123,10 @@ class ProjectOrchestrator:
             logger.info("시장 데이터 및 잔고 정보 수집 중...")
             market_data = get_market_data()
             current_portfolio_summary = get_current_portfolio_str(self.kis, self.uc)
+            
+            if is_emergency and emergency_reason:
+                market_data += f"\n\n[⚠️ 비상 리스크 스크럼 소집 사유]:\n{emergency_reason}\n* 지침: 이번 회의는 정기 자산배분이 아닌 긴급 방어 목적입니다. 해당 위험 종목의 손절/비중축소 및 헷지 자산(SPY, SGOV, TLT, USDT) 확충을 최우선으로 검토하십시오."
+
             print(f"✅ 데이터 수집 완료. 현재 잔고 파악 완료.\n")
             
             # 2. 멀티 에이전트 토론 실행
@@ -146,7 +161,9 @@ class ProjectOrchestrator:
                 "date": datetime.datetime.now().strftime("%Y-%m-%d"),
                 "reasoning": decision_json.get("reasoning", ""),
                 "portfolio": decision_json.get("stock_portfolio", []) + decision_json.get("crypto_portfolio", []),
-                "master_status": "APPROVED" if is_approved else "REJECTED"
+                "master_status": "APPROVED" if is_approved else "REJECTED",
+                "mode": mode,
+                "emergency_reason": emergency_reason
             }
             
             with open(config.LATEST_PORTFOLIO_FILE, "w", encoding="utf-8") as f:
@@ -164,11 +181,11 @@ class ProjectOrchestrator:
                 if crypto_portfolio:
                     execute_crypto(crypto_portfolio)
                 
-                self.send_final_report(final_state, decision_json, master_report, "APPROVED")
+                self.send_final_report(final_state, decision_json, master_report, "APPROVED", mode=mode, emergency_reason=emergency_reason)
                 try:
                     import subprocess
                     subprocess.run(
-                        [sys.executable, "asset_manager.py", "--reason", "국내 자산 리밸런싱 완료 보고"],
+                        [sys.executable, "asset_manager.py", "--reason", f"리밸런싱 완료 보고 ({mode})"],
                         cwd=config.BASE_DIR,
                         capture_output=True,
                         text=True
@@ -177,11 +194,11 @@ class ProjectOrchestrator:
                     logger.error(f"자산운용가 완료 보고 실행 실패: {w_e}")
             else:
                 print("\n🛑 마스터 반려됨. 매매 보류.")
-                self.send_final_report(final_state, decision_json, master_report, "REJECTED")
+                self.send_final_report(final_state, decision_json, master_report, "REJECTED", mode=mode, emergency_reason=emergency_reason)
                 try:
                     import subprocess
                     subprocess.run(
-                        [sys.executable, "asset_manager.py", "--reason", "국내 자산 매매 보류 현황 보고"],
+                        [sys.executable, "asset_manager.py", "--reason", f"매매 보류 보고 ({mode})"],
                         cwd=config.BASE_DIR,
                         capture_output=True,
                         text=True
@@ -202,15 +219,22 @@ class ProjectOrchestrator:
         except Exception as e:
             logger.warning(f"⚠️ reviewer.main() 실행 중 오류 (메인 사이클 유지): {e}")
 
-    def send_final_report(self, state, decision, master_report, status):
-        """최종 리포트 발송 (가독성 & 쟁점 중심의 상세 브리핑)"""
+    def send_final_report(self, state, decision, master_report, status, mode="REGULAR", emergency_reason=""):
+        """최종 리포트 발송 (정기 회의 vs 비상 스크럼 구분 전송)"""
         today_str = datetime.datetime.now().strftime("%Y-%m-%d")
-        header = f"🛡️ **[AI 멀티 에이전트 종합 투자 회의 리포트 ({today_str})]**"
+        is_emergency = mode.upper() == "EMERGENCY"
+        
+        if is_emergency:
+            header = f"🚨 **[AI 비상 리스크 스크럼 긴급 회의 리포트 ({today_str})]**"
+        else:
+            header = f"🛡️ **[AI 멀티 에이전트 정기 종합 투자 회의 리포트 ({today_str})]**"
         
         master_review_clean = master_report.split('STATUS:')[0].strip()
         
         # 1. 종합 요약 및 마스터 평가 + 6대 에이전트 토론 핵심 쟁점
         msg1 = f"{header}\n"
+        if is_emergency and emergency_reason:
+            msg1 += f"**⚠️ 비상 소집 사유:** `{emergency_reason}`\n"
         msg1 += f"**📌 최종 판정:** `{'✅ 승인 (APPROVED)' if status == 'APPROVED' else '🛑 반려 (REJECTED)'}`\n\n"
         msg1 += f"**👨‍✈️ 마스터 총평:**\n> {master_review_clean}\n\n"
         msg1 += f"**📝 종합 요약:** {decision.get('reasoning', '정보 없음')}\n\n"
@@ -267,4 +291,10 @@ class ProjectOrchestrator:
             self.kis.send_discord_message(msg2)
 
 if __name__ == "__main__":
-    ProjectOrchestrator().run_daily_cycle()
+    import argparse
+    parser = argparse.ArgumentParser(description="Antigravity Investment Orchestrator")
+    parser.add_argument("--mode", type=str, default="REGULAR", help="REGULAR 또는 EMERGENCY")
+    parser.add_argument("--reason", type=str, default="", help="비상 소집 사유")
+    args = parser.parse_args()
+    
+    ProjectOrchestrator().run_daily_cycle(mode=args.mode, emergency_reason=args.reason)

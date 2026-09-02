@@ -98,7 +98,7 @@ def trigger_emergency_scrum(reason_msg: str, kis: KisClient):
         python_bin = sys.executable
     
     try:
-        subprocess.run([python_bin, os.path.join(BASE_DIR, "orchestrator.py")], cwd=BASE_DIR)
+        subprocess.run([python_bin, os.path.join(BASE_DIR, "orchestrator.py"), "--mode", "EMERGENCY", "--reason", reason_msg], cwd=BASE_DIR)
         logger.info("✅ 비상 리밸런싱 회의 완수.")
     except Exception as e:
         logger.error(f"❌ 비상 회의 실행 실패: {e}")
