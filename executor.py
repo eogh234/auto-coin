@@ -647,17 +647,19 @@ def execute_crypto(crypto_portfolio: list):
     crypto_buys.sort(key=lambda x: x[2], reverse=True)
 
     for ticker, name, buy_amt_krw in crypto_buys:
-        # 주문 넣을 가용 현금이 여유있는지 안전장치
-        if buy_amt_krw > new_krw_balance:
-            buy_amt_krw = new_krw_balance * 0.99  # 현금 오버 방지
+        current_krw = uc.get_balance("KRW")
+        if current_krw < 5500:
+            print(f"  ⚠️ 가용 원화({current_krw:,.0f}원) 부족으로 {name} 매수 스킵.")
+            continue
 
-        if buy_amt_krw > 5500:
-            print(f"  🚀 [BUY] {name} ({ticker}) {buy_amt_krw:,.0f}원 어치 시장가 매수")
+        alloc_krw = min(buy_amt_krw, current_krw * 0.995)
+        if alloc_krw >= 5500:
+            alloc_krw_int = int(alloc_krw)
+            print(f"  🚀 [BUY] {name} ({ticker}) {alloc_krw_int:,.0f}원 어치 시장가 매수")
             try:
-                res = uc.buy_market_order(ticker, buy_amt_krw)
-                new_krw_balance -= buy_amt_krw
+                res = uc.buy_market_order(ticker, alloc_krw_int)
                 print(f"     => 업비트 API 응답: {res}")
-                time.sleep(0.3)
+                time.sleep(0.5)
             except Exception as e:
                 print(f"  ❌ 업비트 매수 실패: {e}")
 
