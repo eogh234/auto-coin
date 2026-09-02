@@ -22,28 +22,36 @@ def get_watchlist_data() -> str:
     에이전트가 자주 추천하는 종목들의 실시간 시장 데이터를 조회.
     종목 선정 근거, 가격 수준, 모멘텀을 회의에서 참고할 수 있도록 제공.
     """
-    # ── 감시 종목 목록 ──
+    # ── 확장 감시 유니버스 (미국주식 100% & 가상자산 전 범위) ──
     watchlist = {
-        "KR주식": {
-            "005930": "삼성전자",
-            "000660": "SK하이닉스",
-            "068270": "셀트리온",
-            "069500": "KODEX200(ETF)",
-            "207940": "삼성바이오로직스",
-        },
-        "US주식": {
+        "US주식 (Big Tech & AI 반도체)": {
+            "NVDA":  "Nvidia",
             "AAPL":  "Apple",
             "MSFT":  "Microsoft",
-            "NVDA":  "Nvidia",
             "TSLA":  "Tesla",
+            "AMZN":  "Amazon",
+            "GOOGL": "Alphabet(Google)",
+            "META":  "Meta",
+            "AMD":   "AMD",
+            "AVGO":  "Broadcom",
+            "ARM":   "Arm Holdings",
+        },
+        "US주식 (지수 & 방어/채권 ETF)": {
             "SPY":   "S&P500 ETF",
             "QQQ":   "나스닥100 ETF",
-            "IVV":   "iShares S&P500",
+            "SGOV":  "iShares 0-3M 단기채 ETF",
+            "TLT":   "iShares 20+년 장기채 ETF",
+            "GLD":   "SPDR Gold ETF",
+            "COST":  "Costco",
+            "BRK-B": "Berkshire Hathaway",
         },
-        "코인(yfinance)": {
+        "가상자산 (yfinance & 업비트 연동)": {
             "BTC-USD": "Bitcoin",
             "ETH-USD": "Ethereum",
             "SOL-USD": "Solana",
+            "XRP-USD": "Ripple",
+            "DOGE-USD": "Dogecoin",
+            "USDT-USD": "Tether",
         },
     }
 
