@@ -202,38 +202,52 @@ class KisClient:
 
     def order_us_cash(self, is_buy: bool, ticker: str, quantity: int, price: str, exchange: str = "NASD"):
         """
-        해외 주식 주문 (매수/매도)
-        exchange: NASD (나스닥), NYSE (뉴욕), AMEX (아멕스)
-        해외 주식은 주로 지정가(00) 주문임. 시장가 관련 세팅은 환경에 따라 다를 수 있음.
+        해외 주식 주문 (매수/매도) — 거래소 자동 폴백 (NASD / NYSE / AMEX) 지원
         """
         token = self._get_access_token()
         url = f"{self.url_base}/uapi/overseas-stock/v1/trading/order"
         
-        body = {
-            "CANO": self.cano,
-            "ACNT_PRDT_CD": self.acnt_prdt_cd,
-            "OVRS_EXCG_CD": exchange,
-            "PDNO": ticker,
-            "ORD_QTY": str(quantity),
-            "OVRS_ORD_UNPR": str(price),
-            "ORD_SVR_DVSN_CD": "0", # 0: 일반
-            "ORD_DVSN": "00" # 지정가
-        }
-        
-        hashkey = self._get_hashkey(body)
-        
-        headers = {
-            "Content-Type": "application/json",
-            "authorization": f"Bearer {token}",
-            "appKey": self.app_key,
-            "appSecret": self.app_secret,
-            "tr_id": "TTTT1002U" if is_buy else "TTTT1006U", # TTTT1002U: 미국 매수, TTTT1006U: 미국 매도
-            "custtype": "P",
-            "hashkey": hashkey
-        }
-        
-        res = requests.post(url, headers=headers, data=json.dumps(body))
-        return res.json()
+        exchanges_to_try = [exchange]
+        for alt in ["NYSE", "NASD", "AMEX"]:
+            if alt not in exchanges_to_try:
+                exchanges_to_try.append(alt)
+
+        last_res = {}
+        for ex in exchanges_to_try:
+            body = {
+                "CANO": self.cano,
+                "ACNT_PRDT_CD": self.acnt_prdt_cd,
+                "OVRS_EXCG_CD": ex,
+                "PDNO": ticker,
+                "ORD_QTY": str(quantity),
+                "OVRS_ORD_UNPR": str(price),
+                "ORD_SVR_DVSN_CD": "0", # 0: 일반
+                "ORD_DVSN": "00" # 지정가
+            }
+            
+            hashkey = self._get_hashkey(body)
+            
+            headers = {
+                "Content-Type": "application/json",
+                "authorization": f"Bearer {token}",
+                "appKey": self.app_key,
+                "appSecret": self.app_secret,
+                "tr_id": "TTTT1002U" if is_buy else "TTTT1006U", # TTTT1002U: 미국 매수, TTTT1006U: 미국 매도
+                "custtype": "P",
+                "hashkey": hashkey
+            }
+            
+            res = requests.post(url, headers=headers, data=json.dumps(body))
+            res_json = res.json()
+            msg = res_json.get("msg1", "")
+            
+            if "해당종목정보가 없습니다" in msg:
+                last_res = res_json
+                continue
+            
+            return res_json
+            
+        return last_res
 
     def buy(self, ticker: str, quantity: int, order_type: str = "01", price: str = "0"):
         return self.order_cash(True, ticker, quantity, order_type, price)
