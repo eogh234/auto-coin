@@ -1,10 +1,10 @@
 """
 market_guard.py — 24H 코인 감시 & 장중 주식 -7% 비상 폭락 리스크 가드 데몬
 
-1. 🪙 24H 가상자산 감시: ±5% 이상 급등락 발생 시 긴급 회의 소집
-2. 🏦 장중 주식 -7% 비상 리스크 가드: 
-   - 한국 장 (09:00~15:30), 미국 장 (22:30~05:00 / 23:30~06:00)
-   - 보유 주식 종목이 -7% 이상 급락 시 디스코드 긴급 경보 발송 및 비상 회의 소집
+예외 처리 및 무한 재시도 방지 보완:
+1. 종목별 쿨다운 레지스트리 (동일 종목 4시간 이내 중복 비상 소집 방지)
+2. 비상 회의 소집 최대 2회 재시도 후 안전 스킵 (무한 루프 차단)
+3. 5분 타임아웃 적용
 """
 import os
 import sys
@@ -21,7 +21,6 @@ from kis_client import KisClient
 
 load_dotenv()
 
-# 로거 설정
 logger = logging.getLogger("market_guard")
 logger.setLevel(logging.INFO)
 if not logger.handlers:
@@ -33,6 +32,9 @@ if not logger.handlers:
 BASE_WATCHLIST_CRYPTO = [
     "KRW-BTC", "KRW-ETH", "KRW-SOL", "KRW-XRP", "KRW-DOGE", "KRW-USDT"
 ]
+
+COOLDOWN_SEC = 14400  # 동일 종목 4시간(14,400초) 이내 중복 비상 소집 방지
+triggered_cooldowns: dict[str, float] = {}
 
 def get_active_cryptos(uc: UpbitClient) -> list[str]:
     active = set(BASE_WATCHLIST_CRYPTO)
@@ -47,7 +49,6 @@ def get_active_cryptos(uc: UpbitClient) -> list[str]:
     return sorted(active)
 
 def get_active_stocks(kis: KisClient) -> list[dict]:
-    """현재 보유 중인 한/미 주식 종목 목록 조회"""
     stocks = []
     try:
         kr_res = kis.get_balance()
@@ -84,11 +85,22 @@ def is_kr_market_open() -> bool:
 def is_us_market_open() -> bool:
     now = datetime.datetime.now()
     if now.weekday() >= 5: return False
-    # 서머타임 22:30~05:00, 동절기 23:30~06:00
     return now.hour >= 22 or now.hour < 6
 
-def trigger_emergency_scrum(reason_msg: str, kis: KisClient):
-    """비상 리스크 스크럼 소집"""
+def trigger_emergency_scrum(ticker_key: str, reason_msg: str, kis: KisClient):
+    """
+    비상 리스크 스크럼 소집 (최대 2회 재시도 후 실패 시 안전 스킵)
+    """
+    now = time.time()
+    last_trigger = triggered_cooldowns.get(ticker_key, 0)
+    if now - last_trigger < COOLDOWN_SEC:
+        remaining_min = int((COOLDOWN_SEC - (now - last_trigger)) // 60)
+        logger.info(f"⏳ [{ticker_key}] 쿨다운 재감지 스킵 (남은 쿨다운: {remaining_min}분)")
+        return
+
+    # 쿨다운 ثبت
+    triggered_cooldowns[ticker_key] = now
+
     logger.warning(f"🚨 [비상 소집] {reason_msg}")
     kis.send_discord_message(f"🚨 **[비상 리스크 스크럼 소집]**\n{reason_msg}\n 즉시 AI 긴급 회의를 구동합니다.")
     
@@ -96,18 +108,40 @@ def trigger_emergency_scrum(reason_msg: str, kis: KisClient):
     python_bin = os.path.join(BASE_DIR, "venv/bin/python")
     if not os.path.exists(python_bin):
         python_bin = sys.executable
-    
-    try:
-        subprocess.run([python_bin, os.path.join(BASE_DIR, "orchestrator.py"), "--mode", "EMERGENCY", "--reason", reason_msg], cwd=BASE_DIR)
-        logger.info("✅ 비상 리밸런싱 회의 완수.")
-    except Exception as e:
-        logger.error(f"❌ 비상 회의 실행 실패: {e}")
+
+    MAX_EMERGENCY_RETRY = 2
+    success = False
+
+    for attempt in range(1, MAX_EMERGENCY_RETRY + 1):
+        try:
+            logger.info(f"  👉 비상 회의 실행 시도 ({attempt}/{MAX_EMERGENCY_RETRY})...")
+            res = subprocess.run(
+                [python_bin, os.path.join(BASE_DIR, "orchestrator.py"), "--mode", "EMERGENCY", "--reason", reason_msg],
+                cwd=BASE_DIR,
+                timeout=300  # 5분 타임아웃
+            )
+            if res.returncode == 0:
+                logger.info(f"✅ 비상 리밸런싱 회의 완료 ({attempt}회차).")
+                success = True
+                break
+            else:
+                logger.warning(f"⚠️ 비상 회의 실행 중 비정상 종료 (ReturnCode: {res.returncode})")
+        except subprocess.TimeoutExpired:
+            logger.error(f"⏱️ 비상 회의 실행 타임아웃 (5분 초과)")
+        except Exception as e:
+            logger.error(f"❌ 비상 회의 실행 예외 ({attempt}회차): {e}")
+
+        time.sleep(5)
+
+    if not success:
+        logger.error(f"❌ [비상 소집 최종 실패] {ticker_key} 회의 구동 실패로 이번 쿨다운 동안 스킵 처리합니다.")
+        kis.send_discord_message(f"⚠️ **[비상 소집 스킵]** {ticker_key} 비상 회의 구동 2회 실패로 안전 스킵되었습니다.")
 
 def main_loop():
     uc = UpbitClient()
     kis = KisClient()
 
-    logger.info("🛡️ [마켓 가드 데몬 가동] 24H 코인 감시 & 장중 주식 -7% 비상 리스크 가드 준비 완료")
+    logger.info("🛡️ [마켓 가드 데몬 가동] 24H 코인 감시 & 장중 주식 -7% 비상 리스크 가드 (재시도 예외처리 적용 완료)")
     
     crypto_baselines = {}
     last_crypto_refresh = 0
@@ -141,10 +175,8 @@ def main_loop():
                 if abs(pct) >= 5.0:
                     direction = "📈 급등" if pct > 0 else "📉 급락"
                     msg = f"코인 {c} {direction} ({pct:+.2f}%)\n기준가 {base_p:,.0f}원 ➡️ 현재가 {cur_p:,.0f}원"
-                    trigger_emergency_scrum(msg, kis)
-                    # 기준가 갱신 후 1시간 대기
+                    trigger_emergency_scrum(c, msg, kis)
                     crypto_baselines[c] = cur_p
-                    time.sleep(3600)
                     break
 
             # 3. 🏦 장중 주식 -7% 비상 리스크 감시
@@ -162,8 +194,7 @@ def main_loop():
                                     pfls_rt = float(it.get('evlu_pfls_rt', 0))
                                     if pfls_rt <= -7.0:
                                         msg = f"주식 {name}({ticker}) 장중 손실률 {pfls_rt:+.2f}% 경고 (-7% 돌파)"
-                                        trigger_emergency_scrum(msg, kis)
-                                        time.sleep(3600)
+                                        trigger_emergency_scrum(f"STOCK_{ticker}", msg, kis)
                                         break
                     except Exception as st_e:
                         logger.error(f"주식 감시 예외 ({name}): {st_e}")
