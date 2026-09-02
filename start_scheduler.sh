@@ -9,7 +9,7 @@
 
 set -e
 
-INVEST_DIR="/Users/Daeho/.gemini/antigravity/scratch/multi-agent-investor"
+INVEST_DIR="/Users/Daeho/Projects/auto-coin"
 PYTHON="$INVEST_DIR/venv/bin/python"
 LOG_DIR="$INVEST_DIR"
 

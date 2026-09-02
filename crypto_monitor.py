@@ -100,9 +100,10 @@ def monitor_crypto(threshold_pct: float = 5.0, check_interval_sec: int = 300):
 
                         # 긴급 회의 소집
                         print(">> orchestrator.py 긴급 실행 중...")
+                        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
                         subprocess.run(
-                            ["venv/bin/python", "orchestrator.py"],
-                            cwd="/Users/Daeho/.gemini/antigravity/scratch/multi-agent-investor"
+                            [os.path.join(BASE_DIR, "venv/bin/python"), os.path.join(BASE_DIR, "orchestrator.py")],
+                            cwd=BASE_DIR
                         )
 
                         # 기준가 리셋 후 1시간 휴식
