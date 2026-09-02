@@ -150,12 +150,12 @@ def macroeconomist_node(state: AgentState):
     lessons = load_lessons()
     sys_prompt = f"""당신은 월스트리트 최고 수준의 거시경제학자(Macroeconomist)입니다.
 뉴스 애널리스트의 요약 리포트와 아래의 '과거 투자 회고록'을 가장 중요하게 종합 분석하십시오.
-'단기 리뷰'의 노이즈에만 흔들리지 말고, '장기 펀더멘털 지혜'를 코어(Core)로 삼아 하이브리드 거시적 방향성을 제시하세요.
+⚠️ [주식 전용 지침 — 필수 100% 미국 주식]: 우리 펀드의 주식 포트폴리오는 100% 미국 주식/ETF(NVDA, AAPL, MSFT, TSLA, SGOV, SPY, QQQ 등)로만 운용됩니다. 한국 주식(KR)은 0%로 전면 제외하므로, 모든 분석 시 미국 증시 및 가상자산(코인)에 대해서만 거시적 자산배분 비중을 제시하세요.
 
 [과거 투자 회고록 (장기+단기)]
 {lessons}
 
-위 지침을 바탕으로 주식, 코인, 무위험자산(현금) 비중을 구체적으로 제안하세요."""
+위 지침을 바탕으로 미국 주식, 코인, 무위험 방어자산(SGOV/USDT/달러현금) 비중을 구체적으로 제안하세요."""
     prompt = f"{sys_prompt}\n\n[뉴스 애널리스트 시황 리포트]:\n{state.get('news_view', '데이터 없음')}"
     response = llm_macro.invoke([HumanMessage(content=prompt)])
     print(f"  👉 [macroeconomist] 분석 완료")
@@ -168,7 +168,7 @@ def sector_analyst_node(state: AgentState):
     print("🤖 [섹터 애널리스트 | Llama-3.3-70B] 유망 섹터 발굴 중...")
     sys_prompt = """당신은 날카로운 통찰력을 가진 섹터 애널리스트(Sector Analyst)입니다.
 거시경제학자의 뷰를 바탕으로, 현재 시장에서 가장 유망한 1~2개의 테마를 추천하세요.
-대상 자산군에는 '주식(AI, 금융, 헬스케어 등)' 뿐만 아니라 '가상자산(Bitcoin, Ethereum 등 코인)'도 포함됩니다. 코인 시장이 유력하다면 가상자산 섹터도 적극 추천하세요.
+⚠️ [주식 전용 지침 — 필수 100% 미국 주식]: 우리 펀드의 주식 포트폴리오는 100% 미국 주식/ETF로만 운용됩니다. 한국 주식(KR) 및 국내 테마는 0%로 전면 제외하므로, 추천 섹터는 반드시 미국 증시 상장 테마(예: 미국 AI/반도체, 미국 빅테크, 미국 단기채/방어 ETF 등) 및 가상자산(Bitcoin, Ethereum 등) 중에서만 선정하세요.
 추천 사유를 명확히 밝혀야 합니다."""
     prompt = f"{sys_prompt}\n\n[거시경제학자 뷰]:\n{state['macro_view']}"
     response = llm_sector.invoke([HumanMessage(content=prompt)])
@@ -182,14 +182,14 @@ def quant_analyst_node(state: AgentState):
     print("🤖 [퀀트 분석가 | Qwen3-32B] 최적의 종목 산출 중...")
     lessons = load_lessons()
     sys_prompt = f"""당신은 펀더멘털(Core)과 모멘텀(Satellite)을 조율하는 하이브리드 퀀트 분석가(Quant Analyst)입니다.
-아래의 '과거 투자 회고록'을 주의 깊게 분석하여, 과거에 성공을 가져왔던 종목/섹터 패턴(예: AI/반도체 테마, 거시 환경에 따른 종목 조정 등)은 적극 검토하고, 실패의 원인이 되었던 종목 선정 리스크(테마주 과도한 편입, 바이오/헬스케어의 과도한 변동성 등)는 피해가며 최적의 종목을 선정하십시오.
+아래의 '과거 투자 회고록'을 주의 깊게 분석하여, 과거에 성공을 가져왔던 종목/섹터 패턴은 적극 검토하고, 실패의 원인이 되었던 종목 선정 리스크는 피해가며 최적의 종목을 선정하십시오.
 
 [과거 투자 회고록 (장기+단기 피드백)]
 {lessons}
 
 섹터 애널리스트가 추천한 테마를 반영하되, 장기적으로 우상향하는 '코어 자산'과 단기 뉴스를 타는 '위성 자산'을 구별하여 구체적인 종목(미국주식 및 코인 1~4개)을 선정하세요.
-⚠️ [주식 100% 미국 주식 전용]: 주식은 100% 미국 주식(NVDA, AAPL, MSFT, TSLA, SPY, QQQ, SGOV 등)으로만 선정하십시오. 한국 주식은 0%로 전면 제외하십시오.
-⚠️ [매우 중요 1]: 주식 종목코드(티커)는 미국의 경우 영문 티커 심볼(AAPL, NVDA 등)을 사용하세요. 코인은 KRW- 로 시작하는 업비트 티커(KRW-BTC 등)를 사용하세요.
+⚠️ [주식 100% 미국 주식 전용 — 필독]: 주식은 100% 미국 주식(NVDA, AAPL, MSFT, TSLA, SPY, QQQ, SGOV, TLT 등)으로만 선정하십시오. 한국 주식(005930, 069500 등)은 0%로 전면 제외하십시오.
+⚠️ [매우 중요 1]: 주식 종목코드(티커)는 미국의 경우 영문 티커 심볼(AAPL, NVDA, SGOV 등)을 사용하세요. 코인은 KRW- 로 시작하는 업비트 티커(KRW-BTC 등)를 사용하세요.
 ⚠️ [매우 중요 2]: 레버리지, 인버스 등 '파생 ETF' 상품은 절대 추천 목록에 포함하지 마세요.
 ⚠️ [매우 중요 3]: 코인(KRW-XXX) 종목은 절대로 주식 추천 목록에 포함하지 마세요. 코인은 별도 분리된 가상자산 계좌에서 운용됩니다.
 종목 이름과 정확한 종목코드를 반드시 함께 명시하며, 기술적 판단 근거(수급, 모멘텀 등)를 제시하세요."""
@@ -205,7 +205,8 @@ def risk_manager_node(state: AgentState):
     print("🤖 [리스크 관리자 | Qwen-3.6-27B] 포트폴리오 위험성 검토 중...")
     sys_prompt = """당신은 보수적인 리스크 관리자(Risk Manager)입니다.
 앞선 3명의 의견을 모두 종합하여, 선정된 종목과 비중이 무리한 쏠림 투자는 아닌지, 
-현재 시장의 변동성(VIX 등)을 고려할 때 헷지(Hedge) 수단 및 방어 자산(채권/골드/현금성 자산 비중 최소 15% 이상) 편입이 필요한지 비판적으로 검토하세요.
+현재 시장의 변동성(VIX 등)을 고려할 때 헷지(Hedge) 수단 및 방어 자산(미국 단기채 SGOV/TLT/SPY/현금성 자산 비중 최소 15% 이상) 편입이 필요한지 비판적으로 검토하세요.
+⚠️ [주식 전용 지침 — 필수 100% 미국 주식]: 우리 펀드의 주식 포트폴리오는 100% 미국 주식/ETF로만 운용됩니다. 한국 주식은 0%입니다.
 위험을 줄이기 위한 수정 의견을 명시하세요."""
     prompt = f"{sys_prompt}\n\n[거시뷰]:\n{state['macro_view']}\n\n[섹터뷰]:\n{state['sector_view']}\n\n[퀀트뷰]:\n{state['quant_view']}"
     response = llm_risk.invoke([HumanMessage(content=prompt)])
@@ -235,16 +236,16 @@ def portfolio_manager_node(state: AgentState):
     "reasoning": "최종 결정에 대한 핵심 요약",
     "stock_portfolio": [
         {
-            "ticker": "005930", 
-            "name": "삼성전자", 
+            "ticker": "NVDA", 
+            "name": "엔비디아", 
             "weight": 50,
-            "market": "KR" 
+            "market": "NASD" 
         },
         {
             "ticker": "AAPL", 
             "name": "애플", 
             "weight": 50,
-            "market": "NASD" # 달러 환전 없이 통합증거금으로 주문되므로, 한국주식과 합쳐 총합 100%. 시장구분: NASD, NYSE, AMEX, KR 중 택1.
+            "market": "NASD"
         }
     ],
     "crypto_portfolio": [
