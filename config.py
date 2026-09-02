@@ -1,4 +1,6 @@
 import os
+import logging
+from logging.handlers import RotatingFileHandler
 
 # ============================================================
 # 경로 설정 (Path Configuration)
@@ -10,17 +12,31 @@ LATEST_PORTFOLIO_FILE = os.path.join(BASE_DIR, "latest_portfolio.json")
 DB_FILE = os.path.join(BASE_DIR, "portfolio_history.db")
 KIS_TOKEN_FILE = os.path.join(BASE_DIR, ".kis_token.json")
 
-# 로그 파일 (레거시 - shared structured_logger로 대체됨)
+# 로그 파일 설정
 EXECUTION_LOG = os.path.join(BASE_DIR, "execution_log.txt")
+CRYPTO_LOG = os.path.join(BASE_DIR, "crypto_monitor.log")
+
+def get_rotating_handler(log_filepath: str, max_bytes: int = 10 * 1024 * 1024, backup_count: int = 5) -> RotatingFileHandler:
+    """로그 파일 10MB 자동 로테이션 핸들러 반환"""
+    handler = RotatingFileHandler(
+        log_filepath, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - [%(name)s] - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    handler.setFormatter(formatter)
+    return handler
 
 # ============================================================
-# 에이전트 및 모델 설정 (LLM Configuration)
+# 에이전트 및 모델 설정 (LLM Configuration - Groq Rate Limit 분산 배치)
 # ============================================================
 MODELS = {
-    "high": "llama-3.3-70b-versatile",    # 마스터, 매크로, 포트폴리오 매니저
-    "mid": "llama-3.3-70b-versatile",     # 섹터, 리스크
-    "fast": "llama-3.1-8b-instant",       # 퀀트, 뉴스
-    "mistral": "mistral-small-latest"     # 리뷰어
+    "high": "openai/gpt-oss-120b",        # 마스터, 매크로, 포트폴리오 매니저 (최고 성능 추론)
+    "quant": "qwen/qwen3.6-27b",          # 퀀트 분석가, 리스크 관리자 (수치/논리/추론 특화)
+    "mid": "openai/gpt-oss-20b",          # 섹터 애널리스트 (트렌드 분석 및 속도 분산)
+    "fast": "groq/compound-mini",         # 뉴스 애널리스트 (초고속 요약, RPD 방어)
+    "mistral": "mistral-small-latest"     # 수석 리뷰어 (Mistral API 독립 쿼타)
 }
 
 # 재시도 설정

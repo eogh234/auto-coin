@@ -1,9 +1,20 @@
+import os
 import time
 import subprocess
 import datetime
+import logging
 import config
 from upbit_client import UpbitClient
 from kis_client import KisClient
+
+# ── 로거 및 10MB 자동 로테이션 핸들러 설정 ──
+logger = logging.getLogger("crypto_monitor")
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    logger.addHandler(config.get_rotating_handler(config.CRYPTO_LOG, max_bytes=10 * 1024 * 1024, backup_count=5))
+    console = logging.StreamHandler()
+    console.setFormatter(logging.Formatter("%(asctime)s - [%(name)s] - %(levelname)s - %(message)s"))
+    logger.addHandler(console)
 
 # ── 감시 기본 종목 (에이전트가 자주 추천하는 주요 코인) ──
 BASE_WATCHLIST = [
@@ -29,7 +40,7 @@ def get_active_tickers(uc: UpbitClient) -> list[str]:
             if cur != "KRW" and qty > 0:
                 active.add(f"KRW-{cur}")
     except Exception as e:
-        print(f"  [감시목록] 보유 코인 조회 실패: {e}")
+        logger.error(f"[감시목록] 보유 코인 조회 실패: {e}")
     return sorted(active)
 
 
@@ -39,9 +50,9 @@ def monitor_crypto(threshold_pct: float = 5.0, check_interval_sec: int = 300):
 
     # 감시 대상 초기화
     tickers = get_active_tickers(uc)
-    print(f"👀 [가상자산 24H 감시 모듈 가동]")
-    print(f"   감시 주기: {check_interval_sec}초 | 임계치: ±{threshold_pct}%")
-    print(f"   감시 종목({len(tickers)}개): {', '.join(tickers)}\n")
+    logger.info(f"👀 [가상자산 24H 감시 모듈 가동]")
+    logger.info(f"   감시 주기: {check_interval_sec}초 | 임계치: ±{threshold_pct}%")
+    logger.info(f"   감시 종목({len(tickers)}개): {', '.join(tickers)}\n")
 
     # 기준가 초기 설정
     baseline_prices: dict[str, float] = {}
@@ -60,10 +71,15 @@ def monitor_crypto(threshold_pct: float = 5.0, check_interval_sec: int = 300):
         try:
             now = time.time()
 
-            # ── 1시간마다 기준가 & 감시 목록 갱신 ──
-            if now - last_reset_time > 3600:
+            # 1시간마다 감시 종목 목록 갱신
+            if now - last_refresh_time > 3600:
                 tickers = get_active_tickers(uc)
-                baseline_prices = {}
+                last_refresh_time = now
+                logger.info(f"[감시목록 갱신] 총 {len(tickers)}개 종목 감시 중")
+
+            # 24시간마다 기준가 재설정
+            if now - last_reset_time > 86400:
+                logger.info("[24H 갱신] 감시 기준가를 현재가로 재설정합니다.")
                 for t in tickers:
                     try:
                         p = uc.get_current_price(t)
@@ -72,34 +88,36 @@ def monitor_crypto(threshold_pct: float = 5.0, check_interval_sec: int = 300):
                     except Exception:
                         pass
                 last_reset_time = now
-                ts = datetime.datetime.now().strftime("%H:%M:%S")
-                print(f"[{ts}] 기준가·감시목록 갱신 완료 ({len(tickers)}개): {', '.join(tickers)}")
 
-            # ── 각 종목 변동 체크 ──
             triggered = False
             for t in tickers:
                 try:
-                    cur_price  = uc.get_current_price(t)
                     base_price = baseline_prices.get(t)
-                    if not base_price or not cur_price:
-                        baseline_prices[t] = cur_price or 0
+                    if not base_price or base_price <= 0:
+                        p = uc.get_current_price(t)
+                        if p:
+                            baseline_prices[t] = p
                         continue
 
-                    pct_change = (cur_price - base_price) / base_price * 100
+                    cur_price = uc.get_current_price(t)
+                    if not cur_price or cur_price <= 0:
+                        continue
+
+                    pct_change = ((cur_price - base_price) / base_price) * 100.0
 
                     if abs(pct_change) >= threshold_pct:
-                        ts  = datetime.datetime.now().strftime("%H:%M:%S")
+                        direction = "📈 급등" if pct_change > 0 else "📉 급락"
+                        ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         msg = (
-                            f"🚨 [긴급 비상 사태] {t} 단기 가격 변동 폭발!\n"
-                            f"   1시간 기준 대비 {pct_change:+.2f}% | "
+                            f"🚨 **[가상자산 변동성 경보]** {t} {direction} {pct_change:+.2f}%\n"
                             f"기준가 {base_price:,.0f}원 → 현재 {cur_price:,.0f}원\n"
                             f"   즉시 AI 긴급 회의를 소집합니다."
                         )
-                        print(f"[{ts}] {msg}")
+                        logger.warning(f"[{ts}] {msg}")
                         kis.send_discord_message(msg)
 
                         # 긴급 회의 소집
-                        print(">> orchestrator.py 긴급 실행 중...")
+                        logger.info(">> orchestrator.py 긴급 실행 중...")
                         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
                         subprocess.run(
                             [os.path.join(BASE_DIR, "venv/bin/python"), os.path.join(BASE_DIR, "orchestrator.py")],
@@ -114,20 +132,20 @@ def monitor_crypto(threshold_pct: float = 5.0, check_interval_sec: int = 300):
                                     baseline_prices[t2] = p
                             except Exception:
                                 pass
-                        last_reset_time = time.time()
-                        print(">> 긴급 회의 종료. 1시간 동안 재감시 휴식.")
+
+                        logger.info("긴급 리밸런싱 완료. 1시간 동안 감시를 일시 중지합니다...")
                         time.sleep(3600)
                         triggered = True
                         break
 
                 except Exception as e:
-                    print(f"  [{t}] 가격 조회 오류: {e}")
+                    logger.error(f"  [{t}] 가격 조회 오류: {e}")
 
             if not triggered:
                 time.sleep(check_interval_sec)
 
         except Exception as e:
-            print(f"감시 모듈 오류: {e}")
+            logger.error(f"감시 모듈 오류: {e}")
             time.sleep(60)
 
 

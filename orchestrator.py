@@ -7,13 +7,12 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage
 
-# 공통 로깅 모듈 (최상단에서 초기화)
+# 공통 로깅 모듈 (최상단에서 초기화 및 10MB 로테이션 핸들러 적용)
 sys.path.insert(0, "/Users/Daeho/Projects")
 from shared.structured_logger import setup_logger
-setup_logger("multi-agent-investor")
-
-# Import project config and modules
+root_logger = setup_logger("multi-agent-investor")
 import config
+root_logger.addHandler(config.get_rotating_handler(config.EXECUTION_LOG, max_bytes=10 * 1024 * 1024, backup_count=5))
 from agents import app as agent_workflow
 from agents import AgentState
 from data_pipeline import get_market_data

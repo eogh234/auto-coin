@@ -27,10 +27,11 @@ class AgentState(TypedDict):
     final_decision: str   # 포트폴리오 매니저의 최종 결정 (JSON)
 
 # ============================================================
-# 에이전트별 전용 LLM 설정 (Groq Free Tier: 14,400 RPD)
+# ============================================================
+# 에이전트별 전용 LLM 설정 (Groq 최신 모델 라인업 분산)
 # ============================================================
 
-# 0. 뉴스 애널리스트 (시장 및 뉴스 요약 정리) → Llama 3.3 70B
+# 0. 뉴스 애널리스트 (초고속 텍스트 요약) → Groq Compound Mini
 llm_news = ChatGroq(
     model=config.MODELS["fast"],
     temperature=0.2,
@@ -38,7 +39,7 @@ llm_news = ChatGroq(
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
-# 1. 거시경제학자 - 깊은 추론 필요 → Llama 3.3 70B (최고 성능)
+# 1. 거시경제학자 - 깊은 추론 필요 → GPT-OSS 120B
 llm_macro = ChatGroq(
     model=config.MODELS["high"],
     temperature=0.2,
@@ -46,7 +47,7 @@ llm_macro = ChatGroq(
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
-# 2. 섹터 애널리스트 - 트렌드 분석 → Llama 3.1 8B (빠른 처리, 비용 절감)
+# 2. 섹터 애널리스트 - 트렌드 분석 → GPT-OSS 20B
 llm_sector = ChatGroq(
     model=config.MODELS["mid"],
     temperature=0.3,
@@ -54,25 +55,25 @@ llm_sector = ChatGroq(
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
-# 3. 퀀트 분석가 - 수치/추론 특화 → Qwen3-32B (수학/논리 강점)
+# 3. 퀀트 분석가 - 수치/추론 특화 → Qwen 3.6 27B
 llm_quant = ChatGroq(
-    model="qwen/qwen3-32b",
+    model=config.MODELS["quant"],
     temperature=0.1,
     max_tokens=1024,
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
-# 4. 리스크 관리자 - 보수적 다각도 검토 → Llama 3.3 70B (고신뢰)
+# 4. 리스크 관리자 - 보수적 검토 및 헷지 → Qwen 3.6 27B
 llm_risk = ChatGroq(
-    model="llama-3.3-70b-versatile",
+    model=config.MODELS["quant"],
     temperature=0.2,
     max_tokens=1024,
     api_key=os.environ.get("GROQ_API_KEY"),
 )
 
-# 5. 포트폴리오 매니저 - JSON 구조화 출력 → Llama 3.3 70B (최고 신뢰성)
+# 5. 포트폴리오 매니저 - JSON 구조화 출력 및 종합 판단 → GPT-OSS 120B
 llm_portfolio = ChatGroq(
-    model="llama-3.3-70b-versatile",
+    model=config.MODELS["high"],
     temperature=0.1,
     max_tokens=2048,
     api_key=os.environ.get("GROQ_API_KEY"),
@@ -204,13 +205,13 @@ def quant_analyst_node(state: AgentState):
     time.sleep(7)  # 조치 3: Groq TPM Rate Limit 방지 딜레이
     return {"quant_view": response.content}
 
-# 4. 리스크 관리자 노드 (Llama-3.3-70B)
+# 4. 리스크 관리자 노드 (Qwen 3.6 27B)
 @retry_llm(max_attempts=3)
 def risk_manager_node(state: AgentState):
-    print("🤖 [리스크 관리자 | Llama-3.3-70B] 포트폴리오 위험성 검토 중...")
+    print("🤖 [리스크 관리자 | Qwen-3.6-27B] 포트폴리오 위험성 검토 중...")
     sys_prompt = """당신은 보수적인 리스크 관리자(Risk Manager)입니다.
 앞선 3명의 의견을 모두 종합하여, 선정된 종목과 비중이 무리한 쏠림 투자는 아닌지, 
-현재 시장의 변동성(VIX 등)을 고려할 때 헷지(Hedge) 수단이 추가로 필요한지 비판적으로 검토하세요.
+현재 시장의 변동성(VIX 등)을 고려할 때 헷지(Hedge) 수단 및 방어 자산(채권/골드/현금성 자산 비중 최소 15% 이상) 편입이 필요한지 비판적으로 검토하세요.
 위험을 줄이기 위한 수정 의견을 명시하세요."""
     prompt = f"{sys_prompt}\n\n[거시뷰]:\n{state['macro_view']}\n\n[섹터뷰]:\n{state['sector_view']}\n\n[퀀트뷰]:\n{state['quant_view']}"
     response = llm_risk.invoke([HumanMessage(content=prompt)])
@@ -218,10 +219,10 @@ def risk_manager_node(state: AgentState):
     time.sleep(7)  # 조치 3: Groq TPM Rate Limit 방지 딜레이
     return {"risk_view": response.content}
 
-# 5. 포트폴리오 매니저 노드 (Llama 3.3 70B — JSON 출력)
+# 5. 포트폴리오 매니저 노드 (GPT-OSS 120B — JSON 출력)
 @retry_llm(max_attempts=3)
 def portfolio_manager_node(state: AgentState):
-    print("🤖 [포트폴리오 매니저 | Llama-3.3-70B] 최종 목표 비중(%) 산출 중...")
+    print("🤖 [포트폴리오 매니저 | GPT-OSS 120B] 최종 목표 비중(%) 산출 중...")
     sys_prompt = """당신은 하이브리드 펀드 총괄 포트폴리오 매니저(Portfolio Manager)입니다.
 모든 에이전트의(거시, 섹터, 퀀트, 리스크) 의견 및 현재 보유 중인 포트폴리오 잔고를 취합하여 최종 목표 종목(주식/코인)과 비중(%)을 결정하세요.
 단, 데일리 트레이더처럼 매일 100% 종목을 전부 갈아치우는 행위를 엄격히 지양하십시오. 보유 중인 우량/코어 자산의 펀더멘털이 유효하다면 비중을 기존과 동일하게 '유지(Hold)'하여 트레이딩 비용을 아끼고, 과열/소외된 '단기 변동성' 테마 자산에만 선별적으로 전량 매도/비중 축소/매수를 부여하는 '무거운 엉덩이(장기 투자 중심)'를 기본 골격으로 삼으세요.
@@ -234,6 +235,7 @@ def portfolio_manager_node(state: AgentState):
   - KODEX 200: 069500 / 삼성전자: 005930 / SK하이닉스: 000660 / 셀트리온: 068270
   - 069520은 상장 ETF 코드가 아님 — 사용 금지
 ⚠️ [균형 원칙]: 글로벌 분산을 위해 한국 주식만 편중하지 말고, 미국 주식(AAPL/MSFT/TSLA/SPY/QQQ 등)도 적극 검토하세요. 미국 주식은 execute_us.py가 야간에 자동 실행하므로 추천해도 됩니다.
+⚠️ [방어/헷지 원칙 — 필수]: 하락장 방어 및 리스크 관리를 위해 현금, 채권형 자산/ETF(SPY, TLT, SGOV, KODEX 200 등) 또는 안전 헷지 자산의 비중을 포트폴리오 내 최소 15% 이상 배정하십시오.
 ⚠️ [배분 원칙]: 주식 계좌와 코인 계좌는 분리된 별도의 자산입니다. 주식 포트폴리오 weight 총합 = 반드시 100, 코인 포트폴리오 weight 총합 = 100 또는 0.
 
 결과는 반드시 매매 시스템이 파싱할 수 있도록 아래 JSON 형식으로만 출력하세요. 설명은 필요 없습니다.
