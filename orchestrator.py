@@ -171,15 +171,23 @@ class ProjectOrchestrator:
             logger.info(f"결과 저장 완료: {config.LATEST_PORTFOLIO_FILE}")
 
             if is_approved:
-                print("\n✅ 마스터 승인 완료. 주문 실행 중...")
-                # 한국 주식 / 코인 실행
+                print(f"\n✅ 마스터 승인 완료. 주문 실행 중... (모드: {mode})")
+                # 1. 한국 주식 실행 (장중 또는 비상시)
                 kr_portfolio = [a for a in decision_json.get("stock_portfolio", []) if a.get('market') == 'KR']
                 if kr_portfolio:
                     execute_portfolio(self.kis, kr_portfolio)
                 
+                # 2. 가상자산(코인) 실행 (24H 연중무휴 즉시 조치)
                 crypto_portfolio = decision_json.get("crypto_portfolio", [])
                 if crypto_portfolio:
                     execute_crypto(crypto_portfolio)
+                
+                # 3. 비상 회의(EMERGENCY) 시 미국 주식 즉시 조치
+                if is_emergency:
+                    us_portfolio = [a for a in decision_json.get("stock_portfolio", []) if a.get('market') in ('NASD', 'NYSE', 'AMEX')]
+                    if us_portfolio:
+                        print("  🚀 [비상 조치] 미국 주식 즉시 주문 실행 중...")
+                        execute_portfolio(self.kis, us_portfolio)
                 
                 self.send_final_report(final_state, decision_json, master_report, "APPROVED", mode=mode, emergency_reason=emergency_reason)
                 try:
