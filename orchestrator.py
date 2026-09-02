@@ -127,7 +127,7 @@ class ProjectOrchestrator:
             for output in agent_workflow.stream(initial_state):
                 for key, value in output.items():
                     print(f"  👉 [{key.split('_')[0].upper()}] 분석 완료")
-                    final_state = value
+                    final_state.update(value)
             
             # 3. 결정안 파싱
             decision_raw = final_state.get('final_decision', '{}')
